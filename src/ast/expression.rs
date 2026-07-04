@@ -7,6 +7,7 @@ pub enum Expression<'a> {
     Identifier(Identifier<'a>),
     IntegerLiteral(IntegerLiteral<'a>),
     Prefix(Prefix<'a>),
+    Infix(Infix<'a>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -14,7 +15,8 @@ impl fmt::Display for Expression<'_> {
         match self {
             Expression::Identifier(expr) => write!(f, "{}", expr.value),
             Expression::IntegerLiteral(expr) => write!(f, "{}", expr.value),
-            Expression::Prefix(expr) => write!(f, "({} {})", expr.op, expr.right),
+            Expression::Prefix(expr) => write!(f, "({}{})", expr.op, expr.right),
+            Expression::Infix(expr) => write!(f, "({} {} {})", expr.left, expr.op, expr.right),
         }
     }
 }
@@ -51,6 +53,20 @@ pub struct Prefix<'a> {
 }
 
 impl<'a> Node for Prefix<'a> {
+    fn token_literal(&self) -> &str {
+        self.token.literal
+    }
+}
+
+#[derive(Debug)]
+pub struct Infix<'a> {
+    pub token: Token<'a>,
+    pub left: Box<Expression<'a>>,
+    pub op: &'a str,
+    pub right: Box<Expression<'a>>,
+}
+
+impl<'a> Node for Infix<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }
