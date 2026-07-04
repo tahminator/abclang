@@ -4,3 +4,4 @@ pub mod token;
 pub mod utils;
 
 pub use client::*;
+pub use token::*;

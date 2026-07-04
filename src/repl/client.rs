@@ -1,6 +1,6 @@
 use std::io::{BufRead, Write};
 
-use crate::lexer::{client::Lexer, token::TokenType};
+use crate::lexer::{Lexer, TokenType};
 
 static PROMPT: &str = "<< ";
 

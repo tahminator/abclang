@@ -5,10 +5,7 @@ use crate::{
         self, Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Prefix,
         Program, ReturnStatement, Statement,
     },
-    lexer::{
-        client::Lexer,
-        token::{Token, TokenType},
-    },
+    lexer::{Lexer, Token, TokenType},
     parser::error::ParserError,
 };
 
