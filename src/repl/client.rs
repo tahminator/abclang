@@ -17,19 +17,16 @@ impl Repl {
             write!(writer, "{PROMPT}")?;
             writer.flush()?;
 
-            let line = match lines.next() {
-                Some(Ok(line)) => line,
-                _ => return Ok(()),
-            };
-
-            let mut lexer = Lexer::new(&line);
-            loop {
-                match lexer.next_token() {
-                    Ok(tok) if tok.typ == TokenType::Eof => break,
-                    Ok(tok) => writeln!(writer, "{tok:?}")?,
-                    Err(e) => {
-                        writeln!(writer, "error: {e}")?;
-                        break;
+            if let Some(line) = lines.next().transpose()? {
+                let mut lexer = Lexer::new(&line);
+                loop {
+                    match lexer.next_token() {
+                        Ok(tok) if tok.typ == TokenType::Eof => break,
+                        Ok(tok) => writeln!(writer, "{tok:?}")?,
+                        Err(e) => {
+                            writeln!(writer, "error: {e}")?;
+                            break;
+                        }
                     }
                 }
             }
