@@ -182,11 +182,7 @@ impl<'a> Parser<'a> {
     fn parse_let_statement(&mut self) -> Option<LetStatement<'a>> {
         let token = self.cur_token;
 
-        if !self
-            .expect_peek(TokenType::Ident)
-            .map_err(|e| self.errors.push(e))
-            .ok()?
-        {
+        if !self.expect_peek(TokenType::Ident) {
             return None;
         }
 
@@ -195,11 +191,7 @@ impl<'a> Parser<'a> {
             value: self.cur_token.literal,
         };
 
-        if !self
-            .expect_peek(TokenType::Assign)
-            .map_err(|e| self.errors.push(e))
-            .ok()?
-        {
+        if !self.expect_peek(TokenType::Assign) {
             return None;
         }
 
@@ -222,16 +214,16 @@ impl<'a> Parser<'a> {
         self.peek_token.typ == typ
     }
 
-    fn expect_peek(&mut self, typ: TokenType) -> Result<bool, ParserError> {
+    fn expect_peek(&mut self, typ: TokenType) -> bool {
         if self.peek_token_is(typ) {
             self.next_token();
-            Ok(true)
+            true
         } else {
             self.errors.push(ParserError::UnexpectedToken {
                 expected: typ,
                 got: self.peek_token.typ,
             });
-            Ok(false)
+            false
         }
     }
 
