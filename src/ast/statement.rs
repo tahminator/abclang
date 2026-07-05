@@ -10,6 +10,7 @@ pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Return(ReturnStatement<'a>),
     Expression(ExpressionStatement<'a>),
+    Block(BlockStatement<'a>),
 }
 
 impl fmt::Display for Statement<'_> {
@@ -41,6 +42,17 @@ impl fmt::Display for Statement<'_> {
             Statement::Expression(stmt) => {
                 write!(f, "{}", stmt.expr,)
             }
+            Statement::Block(stmt) => {
+                write!(
+                    f,
+                    "{}",
+                    stmt.statements
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            }
         }
     }
 }
@@ -51,6 +63,7 @@ impl<'a> Node for Statement<'a> {
             Statement::Let(stmt) => stmt.token_literal(),
             Statement::Return(stmt) => stmt.token_literal(),
             Statement::Expression(stmt) => stmt.token_literal(),
+            Statement::Block(stmt) => stmt.token_literal(),
         }
     }
 }
@@ -87,6 +100,18 @@ pub struct ExpressionStatement<'a> {
 }
 
 impl<'a> Node for ExpressionStatement<'a> {
+    fn token_literal(&self) -> &str {
+        self.token.literal
+    }
+}
+
+#[derive(Debug)]
+pub struct BlockStatement<'a> {
+    pub token: Token<'a>,
+    pub statements: Vec<Statement<'a>>,
+}
+
+impl<'a> Node for BlockStatement<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }

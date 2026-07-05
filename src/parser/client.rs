@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        self, Boolean, Expression, ExpressionStatement, Identifier, Infix, IntegerLiteral,
-        LetStatement, Prefix, Program, ReturnStatement, Statement,
+        self, BlockStatement, Boolean, Expression, ExpressionStatement, Identifier, If, Infix,
+        IntegerLiteral, LetStatement, Prefix, Program, ReturnStatement, Statement,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -40,6 +40,7 @@ impl<'a> Parser<'a> {
         parser.register_prefix(TokenType::True, Parser::parse_boolean);
         parser.register_prefix(TokenType::False, Parser::parse_boolean);
         parser.register_prefix(TokenType::LParen, Parser::parse_grouped_expression);
+        parser.register_prefix(TokenType::If, Parser::parse_if_expression);
 
         let infix_func = Parser::parse_infix_expression;
         parser.register_infix(TokenType::Plus, infix_func);
@@ -95,6 +96,46 @@ impl<'a> Parser<'a> {
         }
 
         return exp;
+    }
+
+    fn parse_if_expression(&mut self) -> Option<Expression<'a>> {
+        let token = self.cur_token;
+
+        if !self.expect_peek(TokenType::LParen) {
+            return None;
+        }
+
+        self.next_token();
+        let cond = self.parse_expression(Precedence::Lowest)?;
+
+        if !self.expect_peek(TokenType::RParen) {
+            return None;
+        }
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return None;
+        }
+
+        let consequence = self.parse_block_statement();
+
+        let mut alternative: Option<BlockStatement<'_>> = None;
+
+        if self.peek_token_is(TokenType::Else) {
+            self.next_token();
+
+            if !self.expect_peek(TokenType::LBrace) {
+                return None;
+            }
+
+            alternative = self.parse_block_statement();
+        }
+
+        Some(Expression::If(If {
+            token,
+            cond: Box::new(cond),
+            consequence,
+            alternative,
+        }))
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Expression<'a>> {
@@ -201,6 +242,23 @@ impl<'a> Parser<'a> {
         Some(ReturnStatement { token, value: None })
     }
 
+    fn parse_block_statement(&mut self) -> Option<BlockStatement<'a>> {
+        let token = self.cur_token;
+        let mut statements = vec![];
+
+        self.next_token();
+
+        while !self.cur_token_is(TokenType::RBrace) && !self.cur_token_is(TokenType::Eof) {
+            match self.parse_statement() {
+                Some(stmt) => statements.push(stmt),
+                None => (),
+            }
+            self.next_token();
+        }
+
+        Some(BlockStatement { token, statements })
+    }
+
     fn parse_let_statement(&mut self) -> Option<LetStatement<'a>> {
         let token = self.cur_token;
 
@@ -278,7 +336,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{Node, Statement},
+        ast::{Node, Statement, statement},
         lexer,
     };
 
@@ -772,5 +830,57 @@ return 993322;
         let prog = parse_program_with_len(input, 1);
 
         test_literal_expr(single_expression(&prog), true);
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }";
+        let prog = parse_program_with_len(input, 1);
+
+        let expr = single_expression(&prog);
+
+        let Expression::If(if_expr) = expr else {
+            panic!("expected if expression, received {:?}", expr)
+        };
+
+        test_infix_expr(if_expr.cond.as_ref(), "x", "<", "y");
+
+        let Some(consequence) = &if_expr.consequence else {
+            panic!("expected if_expr.consequence",)
+        };
+
+        let statement = consequence.statements.first().unwrap();
+
+        let Statement::Expression(expr_stmt) = statement else {
+            panic!("expected expression statement, received {:?}", statement)
+        };
+
+        test_identifier(&expr_stmt.expr, "x");
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+        let prog = parse_program_with_len(input, 1);
+
+        let expr = single_expression(&prog);
+
+        let Expression::If(if_expr) = expr else {
+            panic!("expected if expression, received {:?}", expr)
+        };
+
+        test_infix_expr(if_expr.cond.as_ref(), "x", "<", "y");
+
+        let Some(consequence) = &if_expr.consequence else {
+            panic!("expected if_expr.consequence",)
+        };
+
+        let statement = consequence.statements.first().unwrap();
+
+        let Statement::Expression(expr_stmt) = statement else {
+            panic!("expected expression statement, received {:?}", statement)
+        };
+
+        test_identifier(&expr_stmt.expr, "x");
     }
 }
