@@ -216,8 +216,7 @@ impl<'a> Parser<'a> {
 
         let mut left_expr = prefix(self)?;
 
-        let p = precedence as u8;
-        while !self.peek_token_is(TokenType::Semicolon) && p < (self.peek_precedence() as u8) {
+        while !self.peek_token_is(TokenType::Semicolon) && precedence < self.peek_precedence() {
             let Some(&infix) = self.infix_parse_fns.get(&self.peek_token.typ) else {
                 return Some(left_expr);
             };
