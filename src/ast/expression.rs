@@ -8,6 +8,7 @@ pub enum Expression<'a> {
     IntegerLiteral(IntegerLiteral<'a>),
     Prefix(Prefix<'a>),
     Infix(Infix<'a>),
+    Boolean(Boolean<'a>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -17,6 +18,7 @@ impl fmt::Display for Expression<'_> {
             Expression::IntegerLiteral(expr) => write!(f, "{}", expr.value),
             Expression::Prefix(expr) => write!(f, "({}{})", expr.op, expr.right),
             Expression::Infix(expr) => write!(f, "({} {} {})", expr.left, expr.op, expr.right),
+            Expression::Boolean(expr) => write!(f, "{}", expr.value),
         }
     }
 }
@@ -67,6 +69,18 @@ pub struct Infix<'a> {
 }
 
 impl<'a> Node for Infix<'a> {
+    fn token_literal(&self) -> &str {
+        self.token.literal
+    }
+}
+
+#[derive(Debug)]
+pub struct Boolean<'a> {
+    pub token: Token<'a>,
+    pub value: bool,
+}
+
+impl<'a> Node for Boolean<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        self, Expression, ExpressionStatement, Identifier, Infix, IntegerLiteral, LetStatement,
-        Prefix, Program, ReturnStatement, Statement,
+        self, Boolean, Expression, ExpressionStatement, Identifier, Infix, IntegerLiteral,
+        LetStatement, Prefix, Program, ReturnStatement, Statement,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -37,6 +37,8 @@ impl<'a> Parser<'a> {
         parser.register_prefix(TokenType::Int, Parser::parse_integer_literal);
         parser.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
+        parser.register_prefix(TokenType::True, Parser::parse_boolean);
+        parser.register_prefix(TokenType::False, Parser::parse_boolean);
 
         let infix_func = Parser::parse_infix_expression;
         parser.register_infix(TokenType::Plus, infix_func);
@@ -73,6 +75,13 @@ impl<'a> Parser<'a> {
         }?;
 
         Some(Expression::IntegerLiteral(IntegerLiteral { token, value }))
+    }
+
+    fn parse_boolean(&mut self) -> Option<Expression<'a>> {
+        return Some(Expression::Boolean(Boolean {
+            token: self.cur_token,
+            value: self.cur_token_is(TokenType::True),
+        }));
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Expression<'a>> {
@@ -255,7 +264,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::format;
+    use std::{any, fmt::format, str::FromStr};
 
     use crate::{
         ast::{Node, Statement, statement},
@@ -751,6 +760,22 @@ return 993322;
                 input: "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 expected: "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             },
+            Test {
+                input: "true",
+                expected: "true",
+            },
+            Test {
+                input: "false",
+                expected: "false",
+            },
+            Test {
+                input: "3 > 5 == true",
+                expected: "((3 > 5) == true)",
+            },
+            Test {
+                input: "3 < 5 == false",
+                expected: "((3 < 5) == false)",
+            },
         ];
 
         for test in tests.iter() {
@@ -777,6 +802,57 @@ return 993322;
             if actual_str != test.expected {
                 panic!("expected {}, recieved {}", test.expected, actual_str)
             }
+        }
+    }
+
+    #[test]
+    fn test_boolean_expressions() {
+        let input = "true";
+
+        let lexer = lexer::Lexer::new(input);
+        let mut parser = Parser::new(lexer).unwrap();
+
+        let prog = match parser.parse_program() {
+            Err(e) if !e.is_empty() => {
+                let errs = e
+                    .iter()
+                    .map(|err| format!("\t{}", err))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                panic!("parser has {} errors:\n{}", e.len(), errs)
+            }
+            Ok(prog) if prog.statements.len() != 1 => {
+                panic!(
+                    "expected 1 statements but received {}",
+                    prog.statements.len()
+                )
+            }
+            Ok(p) => p,
+            // no need to worry abt this one
+            Err(_) => panic!(),
+        };
+
+        let Statement::Expression(es) = &prog.statements[0] else {
+            panic!(
+                "expected expression statement, received {}",
+                prog.statements[0]
+            )
+        };
+
+        let Expression::Boolean(expr) = &es.expr else {
+            panic!("expected identifier expression, recieved {}", es.expr)
+        };
+
+        if expr.value != true {
+            panic!("bool.value should have been 5, recieved {}", expr.value)
+        }
+
+        if expr.token_literal() != "true" {
+            panic!(
+                "ident.token_literal() should have been \"5\", recieved {}",
+                expr.value
+            )
         }
     }
 }
