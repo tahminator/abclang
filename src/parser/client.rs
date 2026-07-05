@@ -264,10 +264,8 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::{any, fmt::format, str::FromStr};
-
     use crate::{
-        ast::{Node, Statement, statement},
+        ast::{Node, Statement},
         lexer,
     };
 
@@ -275,6 +273,49 @@ mod tests {
 
     struct IdentifierTest<'a> {
         expected_identifier: &'a str,
+    }
+
+    fn parse_program_or_panic(input: &str) -> Program<'_> {
+        let lexer = lexer::Lexer::new(input);
+        let mut parser = Parser::new(lexer).unwrap();
+
+        match parser.parse_program() {
+            Ok(prog) => prog,
+            Err(errors) => {
+                let errs = errors
+                    .iter()
+                    .map(|err| format!("\t{}", err))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                panic!("parser has {} errors:\n{}", errors.len(), errs)
+            }
+        }
+    }
+
+    fn parse_program_with_len(input: &str, expected_len: usize) -> Program<'_> {
+        let prog = parse_program_or_panic(input);
+
+        if prog.statements.len() != expected_len {
+            panic!(
+                "expected {} statements but received {}",
+                expected_len,
+                prog.statements.len()
+            )
+        }
+
+        prog
+    }
+
+    fn single_expression<'a>(prog: &'a Program) -> &'a Expression<'a> {
+        let Statement::Expression(es) = &prog.statements[0] else {
+            panic!(
+                "expected expression statement, received {:?}",
+                prog.statements[0]
+            )
+        };
+
+        &es.expr
     }
 
     fn test_let_statement(s: &Statement, name: &str) {
@@ -316,10 +357,103 @@ mod tests {
         if integ.token_literal() != v.to_string() {
             panic!(
                 "integ.token_literal() expected to be {} but was {}",
-                v.to_string(),
+                v,
                 integ.token_literal()
             )
         }
+    }
+
+    enum Expected<'a> {
+        Int(i64),
+        Ident(&'a str),
+        Bool(bool),
+    }
+
+    impl From<i64> for Expected<'_> {
+        fn from(v: i64) -> Self {
+            Expected::Int(v)
+        }
+    }
+
+    impl<'a> From<&'a str> for Expected<'a> {
+        fn from(v: &'a str) -> Self {
+            Expected::Ident(v)
+        }
+    }
+
+    impl From<bool> for Expected<'_> {
+        fn from(v: bool) -> Self {
+            Expected::Bool(v)
+        }
+    }
+
+    fn test_identifier(expr: &Expression, value: &str) {
+        let Expression::Identifier(ident) = expr else {
+            panic!("expected identifier expression, received {:?}", expr)
+        };
+
+        if ident.value != value {
+            panic!(
+                "ident.value should have been {} but was {}",
+                value, ident.value
+            )
+        }
+
+        if ident.token_literal() != value {
+            panic!(
+                "ident.token_literal() should have been {} but was {}",
+                value,
+                ident.token_literal()
+            )
+        }
+    }
+
+    fn test_boolean_literal(expr: &Expression, value: bool) {
+        let Expression::Boolean(boolean) = expr else {
+            panic!("expected boolean expression, received {:?}", expr)
+        };
+
+        if boolean.value != value {
+            panic!(
+                "boolean.value should have been {} but was {}",
+                value, boolean.value
+            )
+        }
+
+        if boolean.token_literal() != value.to_string() {
+            panic!(
+                "boolean.token_literal() should have been {} but was {}",
+                value,
+                boolean.token_literal()
+            )
+        }
+    }
+
+    fn test_literal_expr<'a>(expr: &Expression, expected: impl Into<Expected<'a>>) {
+        match expected.into() {
+            Expected::Int(v) => test_integer_literal(expr, v),
+            Expected::Ident(v) => test_identifier(expr, v),
+            Expected::Bool(v) => test_boolean_literal(expr, v),
+        }
+    }
+
+    fn test_infix_expr<'a>(
+        expr: &Expression,
+        left: impl Into<Expected<'a>>,
+        op: &str,
+        right: impl Into<Expected<'a>>,
+    ) {
+        let Expression::Infix(infix) = expr else {
+            panic!("expected infix expression, received {:?}", expr)
+        };
+
+        test_literal_expr(infix.left.as_ref(), left);
+
+        if infix.op != op {
+            panic!("expected operator {} but was {}", op, infix.op)
+        }
+
+        test_literal_expr(infix.right.as_ref(), right);
     }
 
     #[test]
@@ -330,29 +464,7 @@ let y = 10;
 let foobar = 838383;
 ";
 
-        let lexer = lexer::Lexer::new(input);
-        let mut parser = Parser::new(lexer).unwrap();
-
-        let prog = match parser.parse_program() {
-            Err(e) if !e.is_empty() => {
-                let errs = e
-                    .iter()
-                    .map(|err| format!("\t{}", err))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-
-                panic!("parser has {} errors:\n{}", e.len(), errs)
-            }
-            Ok(prog) if prog.statements.len() != 3 => {
-                panic!(
-                    "expected 3 statements but received {}",
-                    prog.statements.len()
-                )
-            }
-            Ok(p) => p,
-            // no need to worry abt this one
-            Err(_) => panic!(),
-        };
+        let prog = parse_program_with_len(input, 3);
 
         let tests = [
             IdentifierTest {
@@ -382,29 +494,7 @@ return 10;
 return 993322;
 ";
 
-        let lexer = lexer::Lexer::new(input);
-        let mut parser = Parser::new(lexer).unwrap();
-
-        let prog = match parser.parse_program() {
-            Err(e) if !e.is_empty() => {
-                let errs = e
-                    .iter()
-                    .map(|err| format!("\t{}", err))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-
-                panic!("parser has {} errors:\n{}", e.len(), errs)
-            }
-            Ok(prog) if prog.statements.len() != 3 => {
-                panic!(
-                    "expected 3 statements but received {}",
-                    prog.statements.len()
-                )
-            }
-            Ok(p) => p,
-            // no need to worry abt this one
-            Err(_) => panic!(),
-        };
+        let prog = parse_program_with_len(input, 3);
 
         for stmt in prog.statements.iter() {
             let rt = match stmt {
@@ -425,105 +515,18 @@ return 993322;
     fn test_identifier_expressions() {
         let input = "foobar;";
 
-        let lexer = lexer::Lexer::new(input);
-        let mut parser = Parser::new(lexer).unwrap();
+        let prog = parse_program_with_len(input, 1);
 
-        let prog = match parser.parse_program() {
-            Err(e) if !e.is_empty() => {
-                let errs = e
-                    .iter()
-                    .map(|err| format!("\t{}", err))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-
-                panic!("parser has {} errors:\n{}", e.len(), errs)
-            }
-            Ok(prog) if prog.statements.len() != 1 => {
-                panic!(
-                    "expected 1 statements but received {}",
-                    prog.statements.len()
-                )
-            }
-            Ok(p) => p,
-            // no need to worry abt this one
-            Err(_) => panic!(),
-        };
-
-        let Statement::Expression(es) = &prog.statements[0] else {
-            panic!(
-                "expected expression statement, received {}",
-                prog.statements[0]
-            )
-        };
-
-        let Expression::Identifier(ident) = &es.expr else {
-            panic!("expected identifier expression, recieved {}", es.expr)
-        };
-
-        if ident.value != "foobar" {
-            panic!(
-                "ident.value should have been \"foobar\", recieved {}",
-                ident.value
-            )
-        }
-
-        if ident.token_literal() != "foobar" {
-            panic!(
-                "ident.token_literal() should have been \"foobar\", recieved {}",
-                ident.value
-            )
-        }
+        test_literal_expr(single_expression(&prog), "foobar");
     }
 
     #[test]
     fn test_integer_literal_expressions() {
         let input = "5;";
 
-        let lexer = lexer::Lexer::new(input);
-        let mut parser = Parser::new(lexer).unwrap();
+        let prog = parse_program_with_len(input, 1);
 
-        let prog = match parser.parse_program() {
-            Err(e) if !e.is_empty() => {
-                let errs = e
-                    .iter()
-                    .map(|err| format!("\t{}", err))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-
-                panic!("parser has {} errors:\n{}", e.len(), errs)
-            }
-            Ok(prog) if prog.statements.len() != 1 => {
-                panic!(
-                    "expected 1 statements but received {}",
-                    prog.statements.len()
-                )
-            }
-            Ok(p) => p,
-            // no need to worry abt this one
-            Err(_) => panic!(),
-        };
-
-        let Statement::Expression(es) = &prog.statements[0] else {
-            panic!(
-                "expected expression statement, received {}",
-                prog.statements[0]
-            )
-        };
-
-        let Expression::IntegerLiteral(ident) = &es.expr else {
-            panic!("expected identifier expression, recieved {}", es.expr)
-        };
-
-        if ident.value != 5 {
-            panic!("ident.value should have been 5, recieved {}", ident.value)
-        }
-
-        if ident.token_literal() != "5" {
-            panic!(
-                "ident.token_literal() should have been \"5\", recieved {}",
-                ident.value
-            )
-        }
+        test_integer_literal(single_expression(&prog), 5);
     }
 
     #[test]
@@ -548,39 +551,13 @@ return 993322;
         ];
 
         for prefix_test in prefix_tests.iter() {
-            let lexer = lexer::Lexer::new(prefix_test.input);
-            let mut parser = Parser::new(lexer).unwrap();
+            let prog = parse_program_with_len(prefix_test.input, 1);
 
-            let prog = match parser.parse_program() {
-                Err(e) if !e.is_empty() => {
-                    let errs = e
-                        .iter()
-                        .map(|err| format!("\t{}", err))
-                        .collect::<Vec<_>>()
-                        .join("\n");
-
-                    panic!("parser has {} errors:\n{}", e.len(), errs)
-                }
-                Ok(prog) if prog.statements.len() != 1 => {
-                    panic!(
-                        "expected 1 statements but received {}",
-                        prog.statements.len()
-                    )
-                }
-                Ok(p) => p,
-                // no need to worry abt this one
-                Err(_) => panic!(),
-            };
-
-            let Statement::Expression(es) = &prog.statements[0] else {
+            let Expression::Prefix(expr) = single_expression(&prog) else {
                 panic!(
-                    "expected expression statement, received {:?}",
-                    prog.statements[0]
+                    "expected prefix expression, recieved {:?}",
+                    single_expression(&prog)
                 )
-            };
-
-            let Expression::Prefix(expr) = &es.expr else {
-                panic!("expected prefix expression, recieved {:?}", es.expr)
             };
 
             if expr.op != prefix_test.op {
@@ -590,7 +567,7 @@ return 993322;
                 )
             }
 
-            test_integer_literal(expr.right.as_ref(), prefix_test.int_value);
+            test_literal_expr(expr.right.as_ref(), prefix_test.int_value);
         }
     }
 
@@ -655,48 +632,14 @@ return 993322;
         ];
 
         for infix_test in infix_tests.iter() {
-            let lexer = lexer::Lexer::new(infix_test.input);
-            let mut parser = Parser::new(lexer).unwrap();
+            let prog = parse_program_with_len(infix_test.input, 1);
 
-            let prog = match parser.parse_program() {
-                Err(e) if !e.is_empty() => {
-                    let errs = e
-                        .iter()
-                        .map(|err| format!("\t{}", err))
-                        .collect::<Vec<_>>()
-                        .join("\n");
-
-                    panic!("parser has {} errors:\n{}", e.len(), errs)
-                }
-                Ok(prog) if prog.statements.len() != 1 => {
-                    panic!(
-                        "expected 1 statements but received {}",
-                        prog.statements.len()
-                    )
-                }
-                Ok(p) => p,
-                // no need to worry abt this one
-                Err(_) => panic!(),
-            };
-
-            let Statement::Expression(es) = &prog.statements[0] else {
-                panic!(
-                    "expected expression statement, received {:?}",
-                    prog.statements[0]
-                )
-            };
-
-            let Expression::Infix(expr) = &es.expr else {
-                panic!("expected infix expression, recieved {:?}", es.expr)
-            };
-
-            test_integer_literal(expr.left.as_ref(), infix_test.left_value);
-
-            if expr.op != infix_test.op {
-                panic!("expected {} but recieved {}", infix_test.op, expr.op)
-            }
-
-            test_integer_literal(expr.right.as_ref(), infix_test.right_value);
+            test_infix_expr(
+                single_expression(&prog),
+                infix_test.left_value,
+                infix_test.op,
+                infix_test.right_value,
+            );
         }
     }
 
@@ -779,23 +722,7 @@ return 993322;
         ];
 
         for test in tests.iter() {
-            let lexer = lexer::Lexer::new(test.input);
-            let mut parser = Parser::new(lexer).unwrap();
-
-            let prog = match parser.parse_program() {
-                Err(e) if !e.is_empty() => {
-                    let errs = e
-                        .iter()
-                        .map(|err| format!("\t{}", err))
-                        .collect::<Vec<_>>()
-                        .join("\n");
-
-                    panic!("parser has {} errors:\n{}", e.len(), errs)
-                }
-                Ok(p) => p,
-                // no need to worry abt this one
-                Err(_) => panic!(),
-            };
+            let prog = parse_program_or_panic(test.input);
 
             let actual_str = prog.to_string();
 
@@ -809,50 +736,8 @@ return 993322;
     fn test_boolean_expressions() {
         let input = "true";
 
-        let lexer = lexer::Lexer::new(input);
-        let mut parser = Parser::new(lexer).unwrap();
+        let prog = parse_program_with_len(input, 1);
 
-        let prog = match parser.parse_program() {
-            Err(e) if !e.is_empty() => {
-                let errs = e
-                    .iter()
-                    .map(|err| format!("\t{}", err))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-
-                panic!("parser has {} errors:\n{}", e.len(), errs)
-            }
-            Ok(prog) if prog.statements.len() != 1 => {
-                panic!(
-                    "expected 1 statements but received {}",
-                    prog.statements.len()
-                )
-            }
-            Ok(p) => p,
-            // no need to worry abt this one
-            Err(_) => panic!(),
-        };
-
-        let Statement::Expression(es) = &prog.statements[0] else {
-            panic!(
-                "expected expression statement, received {}",
-                prog.statements[0]
-            )
-        };
-
-        let Expression::Boolean(expr) = &es.expr else {
-            panic!("expected identifier expression, recieved {}", es.expr)
-        };
-
-        if expr.value != true {
-            panic!("bool.value should have been 5, recieved {}", expr.value)
-        }
-
-        if expr.token_literal() != "true" {
-            panic!(
-                "ident.token_literal() should have been \"5\", recieved {}",
-                expr.value
-            )
-        }
+        test_literal_expr(single_expression(&prog), true);
     }
 }
