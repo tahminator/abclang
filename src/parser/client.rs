@@ -39,6 +39,7 @@ impl<'a> Parser<'a> {
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::True, Parser::parse_boolean);
         parser.register_prefix(TokenType::False, Parser::parse_boolean);
+        parser.register_prefix(TokenType::LParen, Parser::parse_grouped_expression);
 
         let infix_func = Parser::parse_infix_expression;
         parser.register_infix(TokenType::Plus, infix_func);
@@ -78,10 +79,22 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_boolean(&mut self) -> Option<Expression<'a>> {
-        return Some(Expression::Boolean(Boolean {
+        Some(Expression::Boolean(Boolean {
             token: self.cur_token,
             value: self.cur_token_is(TokenType::True),
-        }));
+        }))
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<Expression<'a>> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest);
+
+        if !self.expect_peek(TokenType::RParen) {
+            return None;
+        }
+
+        return exp;
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Expression<'a>> {
@@ -718,6 +731,26 @@ return 993322;
             Test {
                 input: "3 < 5 == false",
                 expected: "((3 < 5) == false)",
+            },
+            Test {
+                input: "1 + (2 + 3) + 4",
+                expected: "((1 + (2 + 3)) + 4)",
+            },
+            Test {
+                input: "(5 + 5) * 2",
+                expected: "((5 + 5) * 2)",
+            },
+            Test {
+                input: "2 / (5 + 5)",
+                expected: "(2 / (5 + 5))",
+            },
+            Test {
+                input: "-(5 + 5)",
+                expected: "(-(5 + 5))",
+            },
+            Test {
+                input: "!(true == true)",
+                expected: "(!(true == true))",
             },
         ];
 
