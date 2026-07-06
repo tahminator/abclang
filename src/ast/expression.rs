@@ -1,7 +1,7 @@
-use std::fmt::{self, write};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use crate::{
-    ast::{BlockStatement, Node, Statement},
+    ast::{BlockStatement, Node},
     lexer::token::Token,
 };
 
@@ -15,41 +15,17 @@ pub enum Expression<'a> {
     If(IfExpression<'a>),
 }
 
-impl fmt::Display for Expression<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Expression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let mut w = |x: &dyn Display| write!(f, "{}", x);
+
         match self {
-            Expression::Identifier(expr) => write!(f, "{}", expr.value),
-            Expression::IntegerLiteral(expr) => write!(f, "{}", expr.value),
-            Expression::Prefix(expr) => write!(f, "({}{})", expr.op, expr.right),
-            Expression::Infix(expr) => write!(f, "({} {} {})", expr.left, expr.op, expr.right),
-            Expression::Boolean(expr) => write!(f, "{}", expr.value),
-            Expression::If(expr) => {
-                let stringify = |block: &BlockStatement| {
-                    block
-                        .statements
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                };
-
-                let consequence = expr
-                    .consequence
-                    .as_ref()
-                    .map(stringify)
-                    .unwrap_or_else(|| "None".to_string());
-
-                match &expr.alternative {
-                    Some(alt) => write!(
-                        f,
-                        "if {} {} else {}",
-                        expr.cond,
-                        consequence,
-                        stringify(alt)
-                    ),
-                    None => write!(f, "if {} {}", expr.cond, consequence,),
-                }
-            }
+            Expression::Identifier(expr) => w(expr),
+            Expression::IntegerLiteral(expr) => w(expr),
+            Expression::Prefix(expr) => w(expr),
+            Expression::Infix(expr) => w(expr),
+            Expression::Boolean(expr) => w(expr),
+            Expression::If(expr) => w(expr),
         }
     }
 }
@@ -66,6 +42,12 @@ impl<'a> Node for IdentifierExpression<'a> {
     }
 }
 
+impl Display for IdentifierExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.value)
+    }
+}
+
 #[derive(Debug)]
 pub struct IntegerLiteralExpression<'a> {
     pub token: Token<'a>,
@@ -75,6 +57,12 @@ pub struct IntegerLiteralExpression<'a> {
 impl<'a> Node for IntegerLiteralExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
+    }
+}
+
+impl Display for IntegerLiteralExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -88,6 +76,12 @@ pub struct PrefixExpression<'a> {
 impl<'a> Node for PrefixExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
+    }
+}
+
+impl Display for PrefixExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "({}{})", self.op, self.right)
     }
 }
 
@@ -105,6 +99,12 @@ impl<'a> Node for InfixExpression<'a> {
     }
 }
 
+impl Display for InfixExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "({} {} {})", self.left, self.op, self.right)
+    }
+}
+
 #[derive(Debug)]
 pub struct BooleanExpression<'a> {
     pub token: Token<'a>,
@@ -114,6 +114,12 @@ pub struct BooleanExpression<'a> {
 impl<'a> Node for BooleanExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
+    }
+}
+
+impl Display for BooleanExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.value)
     }
 }
 
@@ -128,5 +134,35 @@ pub struct IfExpression<'a> {
 impl<'a> Node for IfExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
+    }
+}
+
+impl Display for IfExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let stringify = |block: &BlockStatement| {
+            block
+                .statements
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+
+        let consequence = self
+            .consequence
+            .as_ref()
+            .map(stringify)
+            .unwrap_or_else(|| "None".to_string());
+
+        match &self.alternative {
+            Some(alt) => write!(
+                f,
+                "if {} {} else {}",
+                self.cond,
+                consequence,
+                stringify(alt)
+            ),
+            None => write!(f, "if {} {}", self.cond, consequence,),
+        }
     }
 }

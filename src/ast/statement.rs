@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use crate::{
     ast::{Expression, IdentifierExpression, Node},
@@ -13,46 +13,15 @@ pub enum Statement<'a> {
     Block(BlockStatement<'a>),
 }
 
-impl fmt::Display for Statement<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Statement<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let mut w = |x: &dyn Display| write!(f, "{}", x);
+
         match self {
-            Statement::Let(stmt) => {
-                write!(
-                    f,
-                    "{} {} = {};",
-                    stmt.token_literal(),
-                    stmt.name.value,
-                    stmt.value
-                        .as_ref()
-                        .map(|v| v.to_string())
-                        .unwrap_or_else(|| "None".to_string())
-                )
-            }
-            Statement::Return(stmt) => {
-                write!(
-                    f,
-                    "{} {}",
-                    stmt.token_literal(),
-                    stmt.value
-                        .as_ref()
-                        .map(|v| v.to_string())
-                        .unwrap_or_else(|| "None".to_string())
-                )
-            }
-            Statement::Expression(stmt) => {
-                write!(f, "{}", stmt.expr,)
-            }
-            Statement::Block(stmt) => {
-                write!(
-                    f,
-                    "{}",
-                    stmt.statements
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                )
-            }
+            Statement::Let(stmt) => w(stmt),
+            Statement::Return(stmt) => w(stmt),
+            Statement::Expression(stmt) => w(stmt),
+            Statement::Block(stmt) => w(stmt),
         }
     }
 }
@@ -81,6 +50,21 @@ impl<'a> Node for LetStatement<'a> {
     }
 }
 
+impl Display for LetStatement<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "{} {} = {};",
+            self.token_literal(),
+            self.name.value,
+            self.value
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "None".to_string())
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct ReturnStatement<'a> {
     pub token: Token<'a>,
@@ -90,6 +74,20 @@ pub struct ReturnStatement<'a> {
 impl<'a> Node for ReturnStatement<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
+    }
+}
+
+impl Display for ReturnStatement<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "{} {}",
+            self.token_literal(),
+            self.value
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "None".to_string())
+        )
     }
 }
 
@@ -105,6 +103,12 @@ impl<'a> Node for ExpressionStatement<'a> {
     }
 }
 
+impl Display for ExpressionStatement<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.expr)
+    }
+}
+
 #[derive(Debug)]
 pub struct BlockStatement<'a> {
     pub token: Token<'a>,
@@ -114,5 +118,19 @@ pub struct BlockStatement<'a> {
 impl<'a> Node for BlockStatement<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
+    }
+}
+
+impl Display for BlockStatement<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "{}",
+            self.statements
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
     }
 }
