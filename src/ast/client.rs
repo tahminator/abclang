@@ -32,7 +32,7 @@ impl fmt::Display for Program<'_> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{Expression, Identifier, LetStatement},
+        ast::{Expression, IdentifierExpression, LetStatement},
         lexer::token::{Token, TokenType},
     };
 
@@ -46,14 +46,14 @@ mod tests {
                     typ: TokenType::Let,
                     literal: "let",
                 },
-                name: Identifier {
+                name: IdentifierExpression {
                     token: Token {
                         typ: TokenType::Ident,
                         literal: "myVar",
                     },
                     value: "myVar",
                 },
-                value: Some(Expression::Identifier(Identifier {
+                value: Some(Expression::Identifier(IdentifierExpression {
                     token: Token {
                         typ: TokenType::Ident,
                         literal: "anotherVar",

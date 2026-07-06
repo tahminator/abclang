@@ -7,12 +7,12 @@ use crate::{
 
 #[derive(Debug)]
 pub enum Expression<'a> {
-    Identifier(Identifier<'a>),
-    IntegerLiteral(IntegerLiteral<'a>),
-    Prefix(Prefix<'a>),
-    Infix(Infix<'a>),
-    Boolean(Boolean<'a>),
-    If(If<'a>),
+    Identifier(IdentifierExpression<'a>),
+    IntegerLiteral(IntegerLiteralExpression<'a>),
+    Prefix(PrefixExpression<'a>),
+    Infix(InfixExpression<'a>),
+    Boolean(BooleanExpression<'a>),
+    If(IfExpression<'a>),
 }
 
 impl fmt::Display for Expression<'_> {
@@ -55,77 +55,77 @@ impl fmt::Display for Expression<'_> {
 }
 
 #[derive(Debug)]
-pub struct Identifier<'a> {
+pub struct IdentifierExpression<'a> {
     pub token: Token<'a>,
     pub value: &'a str,
 }
 
-impl<'a> Node for Identifier<'a> {
+impl<'a> Node for IdentifierExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }
 }
 
 #[derive(Debug)]
-pub struct IntegerLiteral<'a> {
+pub struct IntegerLiteralExpression<'a> {
     pub token: Token<'a>,
     pub value: i64,
 }
 
-impl<'a> Node for IntegerLiteral<'a> {
+impl<'a> Node for IntegerLiteralExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }
 }
 
 #[derive(Debug)]
-pub struct Prefix<'a> {
+pub struct PrefixExpression<'a> {
     pub token: Token<'a>,
     pub op: &'a str,
     pub right: Box<Expression<'a>>,
 }
 
-impl<'a> Node for Prefix<'a> {
+impl<'a> Node for PrefixExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }
 }
 
 #[derive(Debug)]
-pub struct Infix<'a> {
+pub struct InfixExpression<'a> {
     pub token: Token<'a>,
     pub left: Box<Expression<'a>>,
     pub op: &'a str,
     pub right: Box<Expression<'a>>,
 }
 
-impl<'a> Node for Infix<'a> {
+impl<'a> Node for InfixExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }
 }
 
 #[derive(Debug)]
-pub struct Boolean<'a> {
+pub struct BooleanExpression<'a> {
     pub token: Token<'a>,
     pub value: bool,
 }
 
-impl<'a> Node for Boolean<'a> {
+impl<'a> Node for BooleanExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }
 }
 
 #[derive(Debug)]
-pub struct If<'a> {
+pub struct IfExpression<'a> {
     pub token: Token<'a>,
     pub cond: Box<Expression<'a>>,
     pub consequence: Option<BlockStatement<'a>>,
     pub alternative: Option<BlockStatement<'a>>,
 }
 
-impl<'a> Node for If<'a> {
+impl<'a> Node for IfExpression<'a> {
     fn token_literal(&self) -> &str {
         self.token.literal
     }

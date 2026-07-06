@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        self, BlockStatement, Boolean, Expression, ExpressionStatement, Identifier, If, Infix,
-        IntegerLiteral, LetStatement, Prefix, Program, ReturnStatement, Statement,
+        self, BlockStatement, BooleanExpression, Expression, ExpressionStatement,
+        IdentifierExpression, IfExpression, InfixExpression, IntegerLiteralExpression,
+        LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -59,7 +60,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_identifier(&mut self) -> Option<Expression<'a>> {
-        Some(Expression::Identifier(Identifier {
+        Some(Expression::Identifier(IdentifierExpression {
             token: self.cur_token,
             value: self.cur_token.literal,
         }))
@@ -76,11 +77,14 @@ impl<'a> Parser<'a> {
             }
         }?;
 
-        Some(Expression::IntegerLiteral(IntegerLiteral { token, value }))
+        Some(Expression::IntegerLiteral(IntegerLiteralExpression {
+            token,
+            value,
+        }))
     }
 
     fn parse_boolean(&mut self) -> Option<Expression<'a>> {
-        Some(Expression::Boolean(Boolean {
+        Some(Expression::Boolean(BooleanExpression {
             token: self.cur_token,
             value: self.cur_token_is(TokenType::True),
         }))
@@ -130,7 +134,7 @@ impl<'a> Parser<'a> {
             alternative = self.parse_block_statement();
         }
 
-        Some(Expression::If(If {
+        Some(Expression::If(IfExpression {
             token,
             cond: Box::new(cond),
             consequence,
@@ -143,7 +147,7 @@ impl<'a> Parser<'a> {
 
         self.next_token();
 
-        Some(Expression::Prefix(Prefix {
+        Some(Expression::Prefix(PrefixExpression {
             token,
             op: token.literal,
             right: Box::new(self.parse_expression(Precedence::Prefix)?),
@@ -159,7 +163,7 @@ impl<'a> Parser<'a> {
 
         let right = self.parse_expression(precedence)?;
 
-        Some(Expression::Infix(Infix {
+        Some(Expression::Infix(InfixExpression {
             token,
             left: Box::new(left),
             op: token.literal,
@@ -265,7 +269,7 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        let name = Identifier {
+        let name = IdentifierExpression {
             token: self.cur_token,
             value: self.cur_token.literal,
         };

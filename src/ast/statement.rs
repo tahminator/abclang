@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    ast::{Expression, Identifier, Node},
+    ast::{Expression, IdentifierExpression, Node},
     lexer::token::Token,
 };
 
@@ -71,7 +71,7 @@ impl<'a> Node for Statement<'a> {
 #[derive(Debug)]
 pub struct LetStatement<'a> {
     pub token: Token<'a>,
-    pub name: Identifier<'a>,
+    pub name: IdentifierExpression<'a>,
     pub value: Option<Expression<'a>>,
 }
 
