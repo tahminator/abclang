@@ -5,7 +5,7 @@ use crate::{
     lexer::token::Token,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Return(ReturnStatement<'a>),
@@ -15,7 +15,7 @@ pub enum Statement<'a> {
 
 impl Display for Statement<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let mut w = |x: &dyn Display| write!(f, "{}", x);
+        let mut w = |x: &dyn Display| write!(f, "{x}");
 
         match self {
             Statement::Let(stmt) => w(stmt),
@@ -37,7 +37,7 @@ impl<'a> Node for Statement<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LetStatement<'a> {
     pub token: Token<'a>,
     pub name: IdentifierExpression<'a>,
@@ -65,7 +65,7 @@ impl Display for LetStatement<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReturnStatement<'a> {
     pub token: Token<'a>,
     pub value: Option<Expression<'a>>,
@@ -91,7 +91,7 @@ impl Display for ReturnStatement<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExpressionStatement<'a> {
     pub token: Token<'a>,
     pub expr: Expression<'a>,
@@ -109,7 +109,7 @@ impl Display for ExpressionStatement<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockStatement<'a> {
     pub token: Token<'a>,
     pub statements: Vec<Statement<'a>>,

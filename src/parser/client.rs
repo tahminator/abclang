@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use crate::{
     ast::{
         self, BlockStatement, BooleanExpression, Expression, ExpressionStatement,
-        IdentifierExpression, IfExpression, InfixExpression, IntegerLiteralExpression,
-        LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
+        FnLiteralExpression, IdentifierExpression, IfExpression, InfixExpression,
+        IntegerLiteralExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
+        Statement,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -42,6 +43,7 @@ impl<'a> Parser<'a> {
         parser.register_prefix(TokenType::False, Parser::parse_boolean);
         parser.register_prefix(TokenType::LParen, Parser::parse_grouped_expression);
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
+        parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
 
         let infix_func = Parser::parse_infix_expression;
         parser.register_infix(TokenType::Plus, infix_func);
@@ -80,6 +82,28 @@ impl<'a> Parser<'a> {
         Some(Expression::IntegerLiteral(IntegerLiteralExpression {
             token,
             value,
+        }))
+    }
+
+    fn parse_function_literal(&mut self) -> Option<Expression<'a>> {
+        let token = self.cur_token;
+
+        if !self.expect_peek(TokenType::LParen) {
+            return None;
+        }
+
+        let params = self.parse_function_params();
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return None;
+        }
+
+        let body = self.parse_block_statement();
+
+        Some(Expression::FnLiteral(FnLiteralExpression {
+            token,
+            params,
+            body,
         }))
     }
 
@@ -208,6 +232,38 @@ impl<'a> Parser<'a> {
         }
 
         Some(ExpressionStatement { token, expr })
+    }
+
+    fn parse_function_params(&mut self) -> Vec<IdentifierExpression<'a>> {
+        let mut idents = vec![];
+
+        if self.peek_token_is(TokenType::RParen) {
+            self.next_token();
+            return idents;
+        }
+
+        self.next_token();
+
+        idents.push(IdentifierExpression {
+            token: self.cur_token,
+            value: self.cur_token.literal,
+        });
+
+        while self.peek_token_is(TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+
+            idents.push(IdentifierExpression {
+                token: self.cur_token,
+                value: self.cur_token.literal,
+            });
+        }
+
+        if !self.expect_peek(TokenType::RParen) {
+            return vec![];
+        }
+
+        idents
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression<'a>> {
@@ -339,7 +395,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{Node, Statement, statement},
+        ast::{Node, Statement},
         lexer,
     };
 
@@ -885,5 +941,50 @@ return 993322;
         };
 
         test_identifier(&expr_stmt.expr, "x");
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "fn(x, y) { x + y; }";
+        let prog = parse_program_with_len(input, 1);
+
+        let expr = single_expression(&prog);
+
+        let Expression::FnLiteral(fn_literal_expr) = expr else {
+            panic!("expected if expression, received {:?}", expr)
+        };
+
+        if fn_literal_expr.params.len() != 2 {
+            panic!(
+                "expected 2 fn_literal_expr.params, received {}",
+                fn_literal_expr.params.len()
+            )
+        }
+
+        for (i, v) in fn_literal_expr.params.iter().enumerate() {
+            test_literal_expr(
+                &Expression::Identifier(v.clone()),
+                if i == 0 { "x" } else { "y" },
+            );
+        }
+
+        let fn_body = fn_literal_expr.body.clone().unwrap();
+
+        if fn_body.statements.len() != 1 {
+            panic!(
+                "fn_literal_expr.body.statements expected to be 1, received {}",
+                fn_body.statements.len()
+            )
+        }
+
+        let fn_body_stmt = fn_body.statements.first().unwrap();
+        let Statement::Expression(body_stmt_expr) = fn_body_stmt else {
+            panic!(
+                "fn_body_stmt exepected to be ExpressionStatement, received {:?}",
+                fn_body_stmt
+            )
+        };
+
+        test_infix_expr(&body_stmt_expr.expr, "x", "+", "y");
     }
 }

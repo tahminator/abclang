@@ -5,7 +5,7 @@ use crate::{
     lexer::token::Token,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression<'a> {
     Identifier(IdentifierExpression<'a>),
     IntegerLiteral(IntegerLiteralExpression<'a>),
@@ -13,11 +13,12 @@ pub enum Expression<'a> {
     Infix(InfixExpression<'a>),
     Boolean(BooleanExpression<'a>),
     If(IfExpression<'a>),
+    FnLiteral(FnLiteralExpression<'a>),
 }
 
 impl Display for Expression<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let mut w = |x: &dyn Display| write!(f, "{}", x);
+        let mut w = |x: &dyn Display| write!(f, "{x}");
 
         match self {
             Expression::Identifier(expr) => w(expr),
@@ -26,11 +27,12 @@ impl Display for Expression<'_> {
             Expression::Infix(expr) => w(expr),
             Expression::Boolean(expr) => w(expr),
             Expression::If(expr) => w(expr),
+            Expression::FnLiteral(expr) => w(expr),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IdentifierExpression<'a> {
     pub token: Token<'a>,
     pub value: &'a str,
@@ -48,7 +50,7 @@ impl Display for IdentifierExpression<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntegerLiteralExpression<'a> {
     pub token: Token<'a>,
     pub value: i64,
@@ -66,7 +68,7 @@ impl Display for IntegerLiteralExpression<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PrefixExpression<'a> {
     pub token: Token<'a>,
     pub op: &'a str,
@@ -85,7 +87,7 @@ impl Display for PrefixExpression<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InfixExpression<'a> {
     pub token: Token<'a>,
     pub left: Box<Expression<'a>>,
@@ -105,7 +107,7 @@ impl Display for InfixExpression<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BooleanExpression<'a> {
     pub token: Token<'a>,
     pub value: bool,
@@ -123,7 +125,7 @@ impl Display for BooleanExpression<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfExpression<'a> {
     pub token: Token<'a>,
     pub cond: Box<Expression<'a>>,
@@ -164,5 +166,37 @@ impl Display for IfExpression<'_> {
             ),
             None => write!(f, "if {} {}", self.cond, consequence,),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FnLiteralExpression<'a> {
+    pub token: Token<'a>,
+    pub params: Vec<IdentifierExpression<'a>>,
+    pub body: Option<BlockStatement<'a>>,
+}
+
+impl<'a> Node for FnLiteralExpression<'a> {
+    fn token_literal(&self) -> &str {
+        self.token.literal
+    }
+}
+
+impl Display for FnLiteralExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "{}({}) {}",
+            self.token_literal(),
+            self.params
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.body
+                .as_ref()
+                .map(|b| b.to_string())
+                .unwrap_or_else(|| "None".to_string())
+        )
     }
 }
