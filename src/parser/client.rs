@@ -308,11 +308,13 @@ impl<'a> Parser<'a> {
 
         self.next_token();
 
+        let value = self.parse_expression(Precedence::Lowest);
+
         while !self.cur_token_is(TokenType::Semicolon) {
             self.next_token();
         }
 
-        Some(ReturnStatement { token, value: None })
+        Some(ReturnStatement { token, value })
     }
 
     fn parse_call_arguments(&mut self) -> Vec<Expression<'a>> {
@@ -378,15 +380,15 @@ impl<'a> Parser<'a> {
             return None;
         }
 
+        self.next_token();
+
+        let value = self.parse_expression(Precedence::Lowest);
+
         while !self.cur_token_is(TokenType::Semicolon) {
             self.next_token()
         }
 
-        Some(LetStatement {
-            name,
-            token,
-            value: None,
-        })
+        Some(LetStatement { name, token, value })
     }
 
     fn cur_token_is(&self, typ: TokenType) -> bool {
@@ -537,6 +539,7 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Copy)]
     enum Expected<'a> {
         Int(i64),
         Ident(&'a str),
@@ -632,56 +635,76 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let input = "
-let x = 5;
-let y = 10;
-let foobar = 838383;
-";
-
-        let prog = parse_program_with_len(input, 3);
-
+        struct Test {
+            input: &'static str,
+            expected_identifier: &'static str,
+            expected_value: Expected<'static>,
+        }
         let tests = [
-            IdentifierTest {
+            Test {
+                input: "let x = 5;",
                 expected_identifier: "x",
+                expected_value: Expected::Int(5),
             },
-            IdentifierTest {
+            Test {
+                input: "let y = true;",
                 expected_identifier: "y",
+                expected_value: Expected::Bool(true),
             },
-            IdentifierTest {
+            Test {
+                input: "let foobar = y;",
                 expected_identifier: "foobar",
+                expected_value: Expected::Ident("y"),
             },
         ];
 
-        for (i, test) in tests.iter().enumerate() {
-            match &prog.statements.get(i) {
-                Some(s) => test_let_statement(s, test.expected_identifier),
-                None => panic!("program statement index {} missing", i),
-            }
+        for test in tests.iter() {
+            let prog = parse_program_with_len(test.input, 1);
+
+            let stmt = prog.statements.first().unwrap();
+            test_let_statement(stmt, test.expected_identifier);
+
+            let Statement::Let(stmt) = stmt else {
+                panic!("expected let statement, receieved {stmt:?}")
+            };
+
+            let val = stmt.value.clone().unwrap();
+            test_literal_expr(&val, test.expected_value);
         }
     }
 
     #[test]
     fn test_return_statements() {
-        let input = "
-return 5;
-return 10;
-return 993322;
-";
+        struct Test {
+            input: &'static str,
+            expected_value: Expected<'static>,
+        }
+        let tests = [
+            Test {
+                input: "return 5;",
+                expected_value: Expected::Int(5),
+            },
+            Test {
+                input: "return true;",
+                expected_value: Expected::Bool(true),
+            },
+            Test {
+                input: "return foobar;",
+                expected_value: Expected::Ident("foobar"),
+            },
+        ];
 
-        let prog = parse_program_with_len(input, 3);
+        for test in tests.iter() {
+            let prog = parse_program_with_len(test.input, 1);
 
-        for stmt in prog.statements.iter() {
-            let rt = match stmt {
-                Statement::Return(rt) => rt,
-                _ => panic!("expected return statement, got {:?}", stmt),
+            let stmt = prog.statements.first().unwrap();
+
+            let Statement::Return(stmt) = stmt else {
+                panic!("expected return statement, receieved {stmt:?}")
             };
 
-            if rt.token_literal() != "return" {
-                panic!(
-                    "rt.token_literal should have returned \"return\", got {}",
-                    rt.token_literal()
-                )
-            }
+            let val = stmt.value.clone().unwrap();
+            test_literal_expr(&val, test.expected_value);
         }
     }
 
