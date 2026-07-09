@@ -14,7 +14,7 @@ use crate::{
 type PrefixParseFn<'a> = fn(&mut Parser<'a>) -> Option<Expression<'a>>;
 type InfixParseFn<'a> = fn(&mut Parser<'a>, expr: Expression<'a>) -> Option<Expression<'a>>;
 
-struct Parser<'a> {
+pub struct Parser<'a> {
     lexer: Lexer<'a>,
     cur_token: Token<'a>,
     peek_token: Token<'a>,
@@ -310,7 +310,7 @@ impl<'a> Parser<'a> {
 
         let value = self.parse_expression(Precedence::Lowest);
 
-        while !self.cur_token_is(TokenType::Semicolon) {
+        if !self.cur_token_is(TokenType::Semicolon) {
             self.next_token();
         }
 
@@ -384,7 +384,7 @@ impl<'a> Parser<'a> {
 
         let value = self.parse_expression(Precedence::Lowest);
 
-        while !self.cur_token_is(TokenType::Semicolon) {
+        if !self.cur_token_is(TokenType::Semicolon) {
             self.next_token()
         }
 
