@@ -987,4 +987,56 @@ return 993322;
 
         test_infix_expr(&body_stmt_expr.expr, "x", "+", "y");
     }
+
+    #[test]
+    fn test_function_param_parsing() {
+        struct Test {
+            input: &'static str,
+            expected_params: Vec<&'static str>,
+        }
+
+        let tests = [
+            Test {
+                input: "fn() {};",
+                expected_params: vec![],
+            },
+            Test {
+                input: "fn(x) {};",
+                expected_params: vec!["x"],
+            },
+            Test {
+                input: "fn(x, y,z) {};",
+                expected_params: vec!["x", "y", "z"],
+            },
+        ];
+
+        for test in tests.iter() {
+            let prog = parse_program_or_panic(test.input);
+
+            let expr_stmt = prog.statements.first().unwrap();
+            let Statement::Expression(expr_stmt) = expr_stmt else {
+                panic!("expected expression statement, received {expr_stmt:?}")
+            };
+
+            let func = expr_stmt.expr.clone();
+            let Expression::FnLiteral(func) = func else {
+                panic!("expected function literal expression, received {func:?}")
+            };
+
+            if func.params.len() != test.expected_params.len() {
+                panic!(
+                    "expected {} params, received {}",
+                    test.expected_params.len(),
+                    func.params.len()
+                )
+            }
+
+            for (i, ident) in test.expected_params.iter().enumerate() {
+                test_literal_expr(
+                    &Expression::Identifier(func.params.get(i).unwrap().clone()),
+                    *ident,
+                );
+            }
+        }
+    }
 }
