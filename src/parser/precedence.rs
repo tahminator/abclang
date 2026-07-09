@@ -24,6 +24,7 @@ impl Precedence {
             TokenType::Minus => Precedence::Sum,
             TokenType::Slash => Precedence::Product,
             TokenType::Asterisk => Precedence::Product,
+            TokenType::LParen => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }

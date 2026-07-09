@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        self, BlockStatement, BooleanExpression, Expression, ExpressionStatement,
+        self, BlockStatement, BooleanExpression, CallExpression, Expression, ExpressionStatement,
         FnLiteralExpression, IdentifierExpression, IfExpression, InfixExpression,
         IntegerLiteralExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
         Statement,
@@ -54,6 +54,8 @@ impl<'a> Parser<'a> {
         parser.register_infix(TokenType::NotEq, infix_func);
         parser.register_infix(TokenType::Lt, infix_func);
         parser.register_infix(TokenType::Gt, infix_func);
+
+        parser.register_infix(TokenType::LParen, Parser::parse_call_expression);
 
         parser.next_token();
         parser.next_token();
@@ -195,6 +197,18 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    fn parse_call_expression(&mut self, expr: Expression<'a>) -> Option<Expression<'a>> {
+        let token = self.cur_token;
+        let function = Box::new(expr);
+        let args = self.parse_call_arguments();
+
+        Some(Expression::Call(CallExpression {
+            token,
+            function,
+            args,
+        }))
+    }
+
     fn next_token(&mut self) {
         self.cur_token = self.peek_token;
         match self.lexer.next_token() {
@@ -299,6 +313,36 @@ impl<'a> Parser<'a> {
         }
 
         Some(ReturnStatement { token, value: None })
+    }
+
+    fn parse_call_arguments(&mut self) -> Vec<Expression<'a>> {
+        let mut args = vec![];
+
+        if self.peek_token_is(TokenType::RParen) {
+            self.next_token();
+            return args;
+        }
+
+        self.next_token();
+        let Some(arg) = self.parse_expression(Precedence::Lowest) else {
+            return args;
+        };
+        args.push(arg);
+
+        while self.peek_token_is(TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            let Some(arg) = self.parse_expression(Precedence::Lowest) else {
+                return args;
+            };
+            args.push(arg);
+        }
+
+        if !self.expect_peek(TokenType::RParen) {
+            return vec![];
+        }
+
+        args
     }
 
     fn parse_block_statement(&mut self) -> Option<BlockStatement<'a>> {
@@ -869,6 +913,18 @@ return 993322;
                 input: "!(true == true)",
                 expected: "(!(true == true))",
             },
+            Test {
+                input: "a + add(b * c) + d",
+                expected: "((a + add((b * c))) + d)",
+            },
+            Test {
+                input: "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                expected: "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            },
+            Test {
+                input: "add(a + b + c * d / f + g)",
+                expected: "add((((a + b) + ((c * d) / f)) + g))",
+            },
         ];
 
         for test in tests.iter() {
@@ -1038,5 +1094,32 @@ return 993322;
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5)";
+
+        let prog = parse_program_with_len(input, 1);
+
+        let stmt = prog.statements.first().unwrap();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected expression statement, received {stmt:?}")
+        };
+
+        let exp = stmt.expr.clone();
+        let Expression::Call(exp) = exp else {
+            panic!("expected call expression, received {exp:?}")
+        };
+
+        test_identifier(&exp.function, "add");
+
+        if exp.args.len() != 3 {
+            panic!("expected exp.args to have 3, recieved {}", exp.args.len())
+        }
+
+        test_literal_expr(&exp.args.first().unwrap().clone(), 1);
+        test_infix_expr(exp.args.get(1).unwrap(), 2, "*", 3);
+        test_infix_expr(exp.args.get(2).unwrap(), 4, "+", 5);
     }
 }

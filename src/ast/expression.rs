@@ -14,6 +14,7 @@ pub enum Expression<'a> {
     Boolean(BooleanExpression<'a>),
     If(IfExpression<'a>),
     FnLiteral(FnLiteralExpression<'a>),
+    Call(CallExpression<'a>),
 }
 
 impl Display for Expression<'_> {
@@ -28,6 +29,7 @@ impl Display for Expression<'_> {
             Expression::Boolean(expr) => w(expr),
             Expression::If(expr) => w(expr),
             Expression::FnLiteral(expr) => w(expr),
+            Expression::Call(expr) => w(expr),
         }
     }
 }
@@ -197,6 +199,37 @@ impl Display for FnLiteralExpression<'_> {
                 .as_ref()
                 .map(|b| b.to_string())
                 .unwrap_or_else(|| "None".to_string())
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CallExpression<'a> {
+    pub token: Token<'a>,
+    /**
+     * Identifier or FunctionLiteral
+     */
+    pub function: Box<Expression<'a>>,
+    pub args: Vec<Expression<'a>>,
+}
+
+impl<'a> Node for CallExpression<'a> {
+    fn token_literal(&self) -> &str {
+        self.token.literal
+    }
+}
+
+impl Display for CallExpression<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "{}({})",
+            self.function,
+            self.args
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
         )
     }
 }
