@@ -12,6 +12,12 @@ pub enum Object {
     Null(NullObject),
 }
 
+impl Object {
+    pub const NULL: Object = Object::Null(NullObject {});
+    pub const TRUE: Object = Object::Boolean(BooleanObject { value: true });
+    pub const FALSE: Object = Object::Boolean(BooleanObject { value: false });
+}
+
 pub trait Objecter {
     fn typ(&self) -> ObjectType;
     fn inspect_value(&self) -> String;

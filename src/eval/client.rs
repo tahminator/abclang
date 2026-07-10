@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
 use crate::{
-    ast::{Expression, IntegerLiteralExpression, Program, Statement},
+    ast::{Expression, Program, Statement},
     eval::error::EvaluateError,
-    object::{self, IntegerObject, NullObject, Object},
+    object::{IntegerObject, NullObject, Object},
 };
 
 pub fn evaluate(program: &Program) -> Result<Object, EvaluateError> {
@@ -21,7 +21,7 @@ fn eval_statements(stmts: &[Statement]) -> Result<Object, EvaluateError> {
 fn eval_statement(stmt: &Statement) -> Result<Object, EvaluateError> {
     match stmt {
         Statement::Expression(stmt) => eval_expression(&stmt.expr),
-        _ => todo!(),
+        _ => Ok(Object::NULL),
     }
 }
 
@@ -30,7 +30,14 @@ fn eval_expression(expr: &Expression) -> Result<Object, EvaluateError> {
         Expression::IntegerLiteral(expr) => {
             Ok(Object::Integer(IntegerObject { value: expr.value }))
         }
-        _ => todo!(),
+        Expression::Boolean(expr) => {
+            if expr.value {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
+        _ => Ok(Object::NULL),
     }
 }
 
@@ -52,6 +59,19 @@ mod tests {
         pub fn test_integer_obj(obj: Object, expected: i64) {
             let Object::Integer(obj) = obj else {
                 panic!("expected integer object, received {obj:?}")
+            };
+
+            if obj.value != expected {
+                panic!(
+                    "object has wrong value - received {}, expected {expected}",
+                    obj.value
+                )
+            }
+        }
+
+        pub fn test_boolean_obj(obj: Object, expected: bool) {
+            let Object::Boolean(obj) = obj else {
+                panic!("expected boolean object, received {obj:?}")
             };
 
             if obj.value != expected {
@@ -84,6 +104,30 @@ mod tests {
         for test in tests.iter() {
             let output = testutils::test_eval(test.input);
             testutils::test_integer_obj(output, test.expected);
+        }
+    }
+
+    #[test]
+    fn test_eval_boolean_expression() {
+        struct Test {
+            input: &'static str,
+            expected: bool,
+        }
+
+        let tests = [
+            Test {
+                input: "true",
+                expected: true,
+            },
+            Test {
+                input: "false",
+                expected: false,
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input);
+            testutils::test_boolean_obj(output, test.expected);
         }
     }
 }
