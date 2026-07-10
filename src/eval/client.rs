@@ -8,11 +8,17 @@ use crate::{
     },
 };
 
-pub fn evaluate(program: &Program, env: &mut Environment) -> Result<Object, ErrorObject> {
+pub fn evaluate<'a>(
+    program: &Program<'a>,
+    env: &mut Environment<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     eval_program(&program.statements, env)
 }
 
-fn eval_program(stmts: &[Statement], env: &mut Environment) -> Result<Object, ErrorObject> {
+fn eval_program<'a>(
+    stmts: &[Statement<'a>],
+    env: &mut Environment<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in stmts {
         result = eval_statement(stmt, env)?;
@@ -31,7 +37,10 @@ fn eval_program(stmts: &[Statement], env: &mut Environment) -> Result<Object, Er
     Ok(result)
 }
 
-fn eval_statement(stmt: &Statement, env: &mut Environment) -> Result<Object, ErrorObject> {
+fn eval_statement<'a>(
+    stmt: &Statement<'a>,
+    env: &mut Environment<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     match stmt {
         Statement::Expression(stmt) => eval_expression(&stmt.expr, env),
         Statement::Block(stmt) => eval_block_statement(stmt, env),
@@ -62,10 +71,10 @@ fn eval_statement(stmt: &Statement, env: &mut Environment) -> Result<Object, Err
     }
 }
 
-fn eval_block_statement(
-    block: &BlockStatement,
-    env: &mut Environment,
-) -> Result<Object, ErrorObject> {
+fn eval_block_statement<'a>(
+    block: &BlockStatement<'a>,
+    env: &mut Environment<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in block.statements.iter() {
         result = eval_statement(stmt, env)?;
@@ -77,7 +86,10 @@ fn eval_block_statement(
     Ok(result)
 }
 
-fn eval_expression(expr: &Expression, env: &mut Environment) -> Result<Object, ErrorObject> {
+fn eval_expression<'a>(
+    expr: &Expression<'a>,
+    env: &mut Environment<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     match expr {
         Expression::If(expr) => eval_if_expression(expr, env),
         Expression::IntegerLiteral(expr) => {
@@ -105,10 +117,10 @@ fn eval_expression(expr: &Expression, env: &mut Environment) -> Result<Object, E
     }
 }
 
-fn eval_identifier(
-    expr: &IdentifierExpression,
-    env: &mut Environment,
-) -> Result<Object, ErrorObject> {
+fn eval_identifier<'a>(
+    expr: &IdentifierExpression<'a>,
+    env: &mut Environment<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     match env.get(expr.value) {
         Some(v) => Ok(v.clone()),
         None => Err(ErrorObject {
@@ -117,7 +129,7 @@ fn eval_identifier(
     }
 }
 
-fn eval_prefix_expression(op: &str, r: Object) -> Result<Object, ErrorObject> {
+fn eval_prefix_expression<'a>(op: &'a str, r: Object<'a>) -> Result<Object<'a>, ErrorObject> {
     match op {
         "!" => Ok(eval_bang_operator_expr(r)),
         "-" => eval_minus_prefix_operator_expr(r),
@@ -127,7 +139,7 @@ fn eval_prefix_expression(op: &str, r: Object) -> Result<Object, ErrorObject> {
     }
 }
 
-fn eval_bang_operator_expr(r: Object) -> Object {
+fn eval_bang_operator_expr<'a>(r: Object<'a>) -> Object<'a> {
     match r {
         Object::TRUE => Object::FALSE,
         Object::FALSE => Object::TRUE,
@@ -136,7 +148,7 @@ fn eval_bang_operator_expr(r: Object) -> Object {
     }
 }
 
-fn eval_minus_prefix_operator_expr(r: Object) -> Result<Object, ErrorObject> {
+fn eval_minus_prefix_operator_expr<'a>(r: Object<'a>) -> Result<Object<'a>, ErrorObject> {
     let Object::Integer(r) = r else {
         return Err(ErrorObject {
             msg: format!("unknown operator: -{}", r.typ()),
@@ -146,10 +158,10 @@ fn eval_minus_prefix_operator_expr(r: Object) -> Result<Object, ErrorObject> {
     Ok(Object::Integer(IntegerObject { value: -r.value }))
 }
 
-fn eval_if_expression(
-    expr: &IfExpression<'_>,
-    env: &mut Environment,
-) -> Result<Object, ErrorObject> {
+fn eval_if_expression<'a>(
+    expr: &IfExpression<'a>,
+    env: &mut Environment<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     let cond = eval_expression(&expr.cond, env)?;
 
     match cond {
@@ -180,7 +192,11 @@ fn is_truthy(obj: &Object) -> bool {
     }
 }
 
-fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, ErrorObject> {
+fn eval_infix_expression<'a>(
+    op: &'a str,
+    l: Object<'a>,
+    r: Object<'a>,
+) -> Result<Object<'a>, ErrorObject> {
     match (l, r) {
         (Object::Integer(ol), Object::Integer(or)) => eval_integer_infix_expression(op, ol, or),
         (ol, or) if op == "==" => Ok(if ol == or {

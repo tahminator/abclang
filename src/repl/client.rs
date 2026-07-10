@@ -25,10 +25,12 @@ impl Repl {
 
         loop {
             let line = rl.readline(PROMPT)?;
+            // TODO: fix hacl
+            let line: &'static str = Box::leak(line.into_boxed_str());
 
             let (line, is_debug) = match line.strip_prefix(DEBUG_PRINT_PARSED_PROG_PREFIX) {
                 Some(s) => (s, true),
-                _ => (line.as_str(), false),
+                _ => (line, false),
             };
 
             rl.add_history_entry(line)?;

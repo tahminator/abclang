@@ -5,7 +5,7 @@ use crate::{
     lexer::token::Token,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'a> {
     Identifier(IdentifierExpression<'a>),
     IntegerLiteral(IntegerLiteralExpression<'a>),
@@ -34,7 +34,7 @@ impl Display for Expression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IdentifierExpression<'a> {
     pub token: Token<'a>,
     pub value: &'a str,
@@ -52,7 +52,7 @@ impl Display for IdentifierExpression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IntegerLiteralExpression<'a> {
     pub token: Token<'a>,
     pub value: i64,
@@ -70,7 +70,7 @@ impl Display for IntegerLiteralExpression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PrefixExpression<'a> {
     pub token: Token<'a>,
     pub op: &'a str,
@@ -89,7 +89,7 @@ impl Display for PrefixExpression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InfixExpression<'a> {
     pub token: Token<'a>,
     pub left: Box<Expression<'a>>,
@@ -109,7 +109,7 @@ impl Display for InfixExpression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BooleanExpression<'a> {
     pub token: Token<'a>,
     pub value: bool,
@@ -127,7 +127,7 @@ impl Display for BooleanExpression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IfExpression<'a> {
     pub token: Token<'a>,
     pub cond: Box<Expression<'a>>,
@@ -171,7 +171,7 @@ impl Display for IfExpression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FnLiteralExpression<'a> {
     pub token: Token<'a>,
     pub params: Vec<IdentifierExpression<'a>>,
@@ -203,7 +203,7 @@ impl Display for FnLiteralExpression<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CallExpression<'a> {
     pub token: Token<'a>,
     /**

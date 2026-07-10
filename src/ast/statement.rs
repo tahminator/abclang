@@ -5,7 +5,7 @@ use crate::{
     lexer::token::Token,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'a> {
     Let(LetStatement<'a>),
     Return(ReturnStatement<'a>),
@@ -37,7 +37,7 @@ impl<'a> Node for Statement<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LetStatement<'a> {
     pub token: Token<'a>,
     pub name: IdentifierExpression<'a>,
@@ -65,7 +65,7 @@ impl Display for LetStatement<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ReturnStatement<'a> {
     pub token: Token<'a>,
     pub value: Option<Expression<'a>>,
@@ -91,7 +91,7 @@ impl Display for ReturnStatement<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExpressionStatement<'a> {
     pub token: Token<'a>,
     pub expr: Expression<'a>,
@@ -109,7 +109,7 @@ impl Display for ExpressionStatement<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BlockStatement<'a> {
     pub token: Token<'a>,
     pub statements: Vec<Statement<'a>>,

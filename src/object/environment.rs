@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use crate::object::Object;
 
-pub struct Environment {
-    pub store: HashMap<String, Object>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Environment<'a> {
+    pub store: HashMap<String, Object<'a>>,
 }
-impl Default for Environment {
+impl<'a> Default for Environment<'a> {
     fn default() -> Self {
         Self {
             store: HashMap::default(),
@@ -13,7 +14,7 @@ impl Default for Environment {
     }
 }
 
-impl Environment {
+impl<'a> Environment<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -24,11 +25,11 @@ impl Environment {
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&Object> {
+    pub fn get(&self, name: &str) -> Option<&Object<'a>> {
         self.store.get(name)
     }
 
-    pub fn set(&mut self, name: String, v: Object) -> Option<Object> {
+    pub fn set(&mut self, name: String, v: Object<'a>) -> Option<Object<'a>> {
         self.store.insert(name, v)
     }
 }

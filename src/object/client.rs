@@ -2,6 +2,11 @@ use std::fmt::{Display as FmtDisplay, Formatter, Result as FmtResult};
 
 use strum::Display;
 
+use crate::{
+    ast::{BlockStatement, IdentifierExpression},
+    object::environment::Environment,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
 pub enum ObjectType {
     Integer,
@@ -9,20 +14,22 @@ pub enum ObjectType {
     Null,
     ReturnValue,
     Error,
+    Function,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Object {
+pub enum Object<'a> {
     Integer(IntegerObject),
     Boolean(BooleanObject),
     Null(NullObject),
-    ReturnValue(ReturnValueObject),
+    ReturnValue(ReturnValueObject<'a>),
+    Function(FunctionObject<'a>),
 }
 
-impl Object {
-    pub const NULL: Object = Object::Null(NullObject {});
-    pub const TRUE: Object = Object::Boolean(BooleanObject { value: true });
-    pub const FALSE: Object = Object::Boolean(BooleanObject { value: false });
+impl Object<'static> {
+    pub const NULL: Object<'static> = Object::Null(NullObject {});
+    pub const TRUE: Object<'static> = Object::Boolean(BooleanObject { value: true });
+    pub const FALSE: Object<'static> = Object::Boolean(BooleanObject { value: false });
 }
 
 pub trait Objecter {
@@ -30,13 +37,14 @@ pub trait Objecter {
     fn inspect_value(&self) -> String;
 }
 
-impl Objecter for Object {
+impl<'a> Objecter for Object<'a> {
     fn typ(&self) -> ObjectType {
         match self {
             Object::Integer(o) => o.typ(),
             Object::Boolean(o) => o.typ(),
             Object::Null(o) => o.typ(),
             Object::ReturnValue(o) => o.typ(),
+            Object::Function(o) => o.typ(),
         }
     }
 
@@ -46,6 +54,7 @@ impl Objecter for Object {
             Object::Boolean(o) => o.inspect_value(),
             Object::Null(o) => o.inspect_value(),
             Object::ReturnValue(o) => o.inspect_value(),
+            Object::Function(o) => o.inspect_value(),
         }
     }
 }
@@ -96,11 +105,11 @@ impl Objecter for NullObject {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ReturnValueObject {
-    pub value: Box<Object>,
+pub struct ReturnValueObject<'a> {
+    pub value: Box<Object<'a>>,
 }
 
-impl Objecter for ReturnValueObject {
+impl<'a> Objecter for ReturnValueObject<'a> {
     fn typ(&self) -> ObjectType {
         ObjectType::ReturnValue
     }
@@ -122,12 +131,40 @@ impl Objecter for ErrorObject {
 
     fn inspect_value(&self) -> String {
         let msg = &self.msg;
-        return format!("ERROR: {msg}");
+        format!("ERROR: {msg}")
     }
 }
 
 impl FmtDisplay for ErrorObject {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.inspect_value())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionObject<'a> {
+    pub params: Vec<IdentifierExpression<'a>>,
+    pub body: Option<BlockStatement<'a>>,
+    pub env: Environment<'a>,
+}
+
+impl<'a> Objecter for FunctionObject<'a> {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Function
+    }
+
+    fn inspect_value(&self) -> String {
+        format!(
+            "fn({}) {{\n{}\n}}",
+            self.params
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.body
+                .as_ref()
+                .map(|b| b.to_string())
+                .unwrap_or_else(|| "None".to_string())
+        )
     }
 }
