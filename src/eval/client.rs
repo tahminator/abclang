@@ -2,17 +2,16 @@ use std::ops::Deref;
 
 use crate::{
     ast::{BlockStatement, Expression, IfExpression, Program, Statement},
-    eval::error::EvaluateError,
     object::{
         ErrorObject, IntegerObject, NullObject, Object, ObjectType, Objecter, ReturnValueObject,
     },
 };
 
-pub fn evaluate(program: &Program) -> Result<Object, EvaluateError> {
+pub fn evaluate(program: &Program) -> Result<Object, ErrorObject> {
     eval_program(&program.statements)
 }
 
-fn eval_program(stmts: &[Statement]) -> Result<Object, EvaluateError> {
+fn eval_program(stmts: &[Statement]) -> Result<Object, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in stmts {
         result = eval_statement(stmt)?;
@@ -23,9 +22,6 @@ fn eval_program(stmts: &[Statement]) -> Result<Object, EvaluateError> {
             Object::ReturnValue(o) => {
                 return Ok(*o.value);
             }
-            Object::Error(o) => {
-                return Ok(Object::Error(o));
-            }
             _ => {
                 result = cur_result;
             }
@@ -34,23 +30,14 @@ fn eval_program(stmts: &[Statement]) -> Result<Object, EvaluateError> {
     Ok(result)
 }
 
-fn is_error_obj(o: &Object) -> bool {
-    matches!(o, Object::Error(_))
-}
-
-fn eval_statement(stmt: &Statement) -> Result<Object, EvaluateError> {
+fn eval_statement(stmt: &Statement) -> Result<Object, ErrorObject> {
     match stmt {
         Statement::Expression(stmt) => eval_expression(&stmt.expr),
         Statement::Block(stmt) => eval_block_statement(stmt),
         Statement::Return(stmt) => {
-            let expr = eval_expression(
-                stmt.value
-                    .as_ref()
-                    .ok_or(EvaluateError::ExpectedReturnButNoValueAttached)?,
-            )?;
-            if is_error_obj(&expr) {
-                return Ok(expr);
-            }
+            let expr = eval_expression(stmt.value.as_ref().ok_or(ErrorObject {
+                msg: "expected return but no value attached".to_string(),
+            })?)?;
 
             let value = Box::new(expr);
             Ok(Object::ReturnValue(ReturnValueObject { value }))
@@ -59,7 +46,7 @@ fn eval_statement(stmt: &Statement) -> Result<Object, EvaluateError> {
     }
 }
 
-fn eval_block_statement(block: &BlockStatement) -> Result<Object, EvaluateError> {
+fn eval_block_statement(block: &BlockStatement) -> Result<Object, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in block.statements.iter() {
         result = eval_statement(stmt)?;
@@ -71,7 +58,7 @@ fn eval_block_statement(block: &BlockStatement) -> Result<Object, EvaluateError>
     Ok(result)
 }
 
-fn eval_expression(expr: &Expression) -> Result<Object, EvaluateError> {
+fn eval_expression(expr: &Expression) -> Result<Object, ErrorObject> {
     match expr {
         Expression::If(expr) => eval_if_expression(expr),
         Expression::IntegerLiteral(expr) => {
@@ -87,33 +74,22 @@ fn eval_expression(expr: &Expression) -> Result<Object, EvaluateError> {
         Expression::Prefix(expr) => {
             let r = eval_expression(&expr.right)?;
 
-            if is_error_obj(&r) {
-                return Ok(r);
-            }
-
-            Ok(eval_prefix_expression(expr.op, r))
+            eval_prefix_expression(expr.op, r)
         }
         Expression::Infix(expr) => {
             let l = eval_expression(&expr.left)?;
-            if is_error_obj(&l) {
-                return Ok(l);
-            }
-
             let r = eval_expression(&expr.right)?;
-            if is_error_obj(&r) {
-                return Ok(r);
-            }
-            Ok(eval_infix_expression(expr.op, l, r))
+            eval_infix_expression(expr.op, l, r)
         }
         _ => Ok(Object::NULL),
     }
 }
 
-fn eval_prefix_expression(op: &str, r: Object) -> Object {
+fn eval_prefix_expression(op: &str, r: Object) -> Result<Object, ErrorObject> {
     match op {
-        "!" => eval_bang_operator_expr(r),
+        "!" => Ok(eval_bang_operator_expr(r)),
         "-" => eval_minus_prefix_operator_expr(r),
-        _ => Object::Error(ErrorObject {
+        _ => Err(ErrorObject {
             msg: format!("unknown operator: {op}{}", r.typ()),
         }),
     }
@@ -128,21 +104,20 @@ fn eval_bang_operator_expr(r: Object) -> Object {
     }
 }
 
-fn eval_minus_prefix_operator_expr(r: Object) -> Object {
+fn eval_minus_prefix_operator_expr(r: Object) -> Result<Object, ErrorObject> {
     let Object::Integer(r) = r else {
-        return Object::Error(ErrorObject {
+        return Err(ErrorObject {
             msg: format!("unknown operator: -{}", r.typ()),
         });
     };
 
-    Object::Integer(IntegerObject { value: -r.value })
+    Ok(Object::Integer(IntegerObject { value: -r.value }))
 }
 
-fn eval_if_expression(expr: &IfExpression<'_>) -> Result<Object, EvaluateError> {
+fn eval_if_expression(expr: &IfExpression<'_>) -> Result<Object, ErrorObject> {
     let cond = eval_expression(&expr.cond)?;
 
     match cond {
-        _ if is_error_obj(&cond) => Ok(cond),
         _ if is_truthy(&cond) => {
             let Some(stmt) = &expr.consequence else {
                 return Ok(Object::NULL);
@@ -170,70 +145,70 @@ fn is_truthy(obj: &Object) -> bool {
     }
 }
 
-fn eval_infix_expression(op: &str, l: Object, r: Object) -> Object {
+fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, ErrorObject> {
     match (l, r) {
         (Object::Integer(ol), Object::Integer(or)) => eval_integer_infix_expression(op, ol, or),
-        (ol, or) if op == "==" => {
-            if ol == or {
-                Object::TRUE
-            } else {
-                Object::FALSE
-            }
-        }
-        (ol, or) if op == "!=" => {
-            if ol != or {
-                Object::TRUE
-            } else {
-                Object::FALSE
-            }
-        }
-        (ol, or) if ol.typ() != or.typ() => Object::Error(ErrorObject {
+        (ol, or) if op == "==" => Ok(if ol == or {
+            Object::TRUE
+        } else {
+            Object::FALSE
+        }),
+        (ol, or) if op == "!=" => Ok(if ol != or {
+            Object::TRUE
+        } else {
+            Object::FALSE
+        }),
+        (ol, or) if ol.typ() != or.typ() => Err(ErrorObject {
             msg: format!("type mismatch: {} {op} {}", ol.typ(), or.typ()),
         }),
-        (ol, or) => Object::Error(ErrorObject {
+        (ol, or) => Err(ErrorObject {
             msg: format!("unknown operator: {} {op} {}", ol.typ(), or.typ()),
         }),
     }
 }
 
-fn eval_integer_infix_expression(op: &str, l: IntegerObject, r: IntegerObject) -> Object {
+fn eval_integer_infix_expression(
+    op: &str,
+    l: IntegerObject,
+    r: IntegerObject,
+) -> Result<Object, ErrorObject> {
     let lval = l.value;
     let rval = r.value;
 
     match op {
-        "+" => Object::Integer(IntegerObject { value: lval + rval }),
-        "-" => Object::Integer(IntegerObject { value: lval - rval }),
-        "*" => Object::Integer(IntegerObject { value: lval * rval }),
-        "/" => Object::Integer(IntegerObject { value: lval / rval }),
+        "+" => Ok(Object::Integer(IntegerObject { value: lval + rval })),
+        "-" => Ok(Object::Integer(IntegerObject { value: lval - rval })),
+        "*" => Ok(Object::Integer(IntegerObject { value: lval * rval })),
+        "/" => Ok(Object::Integer(IntegerObject { value: lval / rval })),
         "<" => {
             if lval < rval {
-                Object::TRUE
+                Ok(Object::TRUE)
             } else {
-                Object::FALSE
+                Ok(Object::FALSE)
             }
         }
         ">" => {
             if lval > rval {
-                Object::TRUE
+                Ok(Object::TRUE)
             } else {
-                Object::FALSE
+                Ok(Object::FALSE)
             }
         }
         "==" => {
             if lval == rval {
-                Object::TRUE
+                Ok(Object::TRUE)
             } else {
-                Object::FALSE
+                Ok(Object::FALSE)
             }
         }
         "!=" => {
             if lval != rval {
-                Object::TRUE
+                Ok(Object::TRUE)
             } else {
-                Object::FALSE
+                Ok(Object::FALSE)
             }
         }
-        _ => Object::Error(ErrorObject {
+        _ => Err(ErrorObject {
             msg: format!("unknown operator: {} {op} {}", l.typ(), r.typ()),
         }),
     }
@@ -244,14 +219,19 @@ mod tests {
     use super::*;
 
     mod testutils {
-        use crate::{eval::evaluate, lexer::Lexer, object::Object, parser::Parser};
+        use crate::{
+            eval::evaluate,
+            lexer::Lexer,
+            object::{ErrorObject, Object},
+            parser::Parser,
+        };
 
-        pub fn test_eval(input: &str) -> Object {
+        pub fn test_eval(input: &str) -> Result<Object, ErrorObject> {
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer).unwrap();
             let prog = parser.parse_program().unwrap();
 
-            evaluate(&prog).unwrap()
+            evaluate(&prog)
         }
 
         pub fn test_integer_obj(obj: Object, expected: i64) {
@@ -358,7 +338,7 @@ mod tests {
         ];
 
         for test in tests.iter() {
-            let output = testutils::test_eval(test.input);
+            let output = testutils::test_eval(test.input).unwrap();
             testutils::test_integer_obj(output, test.expected);
         }
     }
@@ -450,7 +430,7 @@ mod tests {
         ];
 
         for test in tests.iter() {
-            let output = testutils::test_eval(test.input);
+            let output = testutils::test_eval(test.input).unwrap();
             testutils::test_boolean_obj(output, test.expected);
         }
     }
@@ -490,7 +470,7 @@ mod tests {
         ];
 
         for test in tests.iter() {
-            let output = testutils::test_eval(test.input);
+            let output = testutils::test_eval(test.input).unwrap();
             testutils::test_boolean_obj(output, test.expected);
         }
     }
@@ -539,7 +519,7 @@ mod tests {
         ];
 
         for test in tests.iter() {
-            let output = testutils::test_eval(test.input);
+            let output = testutils::test_eval(test.input).unwrap();
             match test.expected {
                 Expected::Integer(expected) => testutils::test_integer_obj(output, expected),
                 Expected::Null => testutils::test_null_obj(output),
@@ -585,7 +565,7 @@ mod tests {
         ];
 
         for test in tests.iter() {
-            let output = testutils::test_eval(test.input);
+            let output = testutils::test_eval(test.input).unwrap();
             testutils::test_integer_obj(output, test.expected);
         }
     }
@@ -637,7 +617,7 @@ mod tests {
         for test in tests.iter() {
             let output = testutils::test_eval(test.input);
 
-            let Object::Error(output) = output else {
+            let Err(output) = output else {
                 panic!("expected error object, receieved {output:?}")
             };
 

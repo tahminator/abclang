@@ -35,7 +35,10 @@ impl Repl {
                     if is_debug {
                         println!("{p:#?}")
                     } else {
-                        let output = evaluate(&p)?.inspect_value();
+                        let output = match evaluate(&p) {
+                            Ok(o) => o.inspect_value(),
+                            Err(o) => o.inspect_value(),
+                        };
                         println!("{output}")
                     }
                 }

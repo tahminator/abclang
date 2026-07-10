@@ -1,3 +1,5 @@
+use std::fmt::{Display as FmtDisplay, Formatter, Result as FmtResult};
+
 use strum::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
@@ -15,7 +17,6 @@ pub enum Object {
     Boolean(BooleanObject),
     Null(NullObject),
     ReturnValue(ReturnValueObject),
-    Error(ErrorObject),
 }
 
 impl Object {
@@ -36,7 +37,6 @@ impl Objecter for Object {
             Object::Boolean(o) => o.typ(),
             Object::Null(o) => o.typ(),
             Object::ReturnValue(o) => o.typ(),
-            Object::Error(o) => o.typ(),
         }
     }
 
@@ -46,7 +46,6 @@ impl Objecter for Object {
             Object::Boolean(o) => o.inspect_value(),
             Object::Null(o) => o.inspect_value(),
             Object::ReturnValue(o) => o.inspect_value(),
-            Object::Error(o) => o.inspect_value(),
         }
     }
 }
@@ -124,5 +123,11 @@ impl Objecter for ErrorObject {
     fn inspect_value(&self) -> String {
         let msg = &self.msg;
         return format!("ERROR: {msg}");
+    }
+}
+
+impl FmtDisplay for ErrorObject {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.inspect_value())
     }
 }
