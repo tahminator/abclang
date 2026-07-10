@@ -2,10 +2,12 @@ use std::io::{BufRead, Write};
 
 use rustyline::{Editor, Helper, history::History};
 
-use crate::{lexer::Lexer, parser::Parser, repl::error::ReplError};
+use crate::{
+    eval::evaluate, lexer::Lexer, object::Objecter, parser::Parser, repl::error::ReplError,
+};
 
 static PROMPT: &str = "<< ";
-static DEBUG_PRINT_PREFIX: &str = "dprint ";
+static DEBUG_PRINT_PARSED_PROG_PREFIX: &str = "dprint ";
 
 pub struct Repl {}
 
@@ -18,7 +20,7 @@ impl Repl {
         loop {
             let line = rl.readline(PROMPT)?;
 
-            let (line, is_debug) = match line.strip_prefix(DEBUG_PRINT_PREFIX) {
+            let (line, is_debug) = match line.strip_prefix(DEBUG_PRINT_PARSED_PROG_PREFIX) {
                 Some(s) => (s, true),
                 _ => (line.as_str(), false),
             };
@@ -33,7 +35,8 @@ impl Repl {
                     if is_debug {
                         println!("{p:#?}")
                     } else {
-                        println!("{p}")
+                        let output = evaluate(&p)?.inspect_value();
+                        println!("{output}")
                     }
                 }
                 Err(errors) => {
