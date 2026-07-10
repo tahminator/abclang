@@ -16,14 +16,10 @@ pub enum Precedence {
 impl Precedence {
     pub fn lookup_precedence(tok: TokenType) -> Precedence {
         match tok {
-            TokenType::Eq => Precedence::Equals,
-            TokenType::NotEq => Precedence::Equals,
-            TokenType::Lt => Precedence::LessGreater,
-            TokenType::Gt => Precedence::LessGreater,
-            TokenType::Plus => Precedence::Sum,
-            TokenType::Minus => Precedence::Sum,
-            TokenType::Slash => Precedence::Product,
-            TokenType::Asterisk => Precedence::Product,
+            TokenType::Eq | TokenType::NotEq => Precedence::Equals,
+            TokenType::Lt | TokenType::Gt => Precedence::LessGreater,
+            TokenType::Plus | TokenType::Minus => Precedence::Sum,
+            TokenType::Slash | TokenType::Asterisk => Precedence::Product,
             TokenType::LParen => Precedence::Call,
             _ => Precedence::Lowest,
         }
