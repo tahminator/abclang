@@ -3,6 +3,7 @@ pub enum ObjectType {
     Integer,
     Boolean,
     Null,
+    ReturnValue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -10,6 +11,7 @@ pub enum Object {
     Integer(IntegerObject),
     Boolean(BooleanObject),
     Null(NullObject),
+    ReturnValue(ReturnValueObject),
 }
 
 impl Object {
@@ -29,6 +31,7 @@ impl Objecter for Object {
             Object::Integer(o) => o.typ(),
             Object::Boolean(o) => o.typ(),
             Object::Null(o) => o.typ(),
+            Object::ReturnValue(o) => o.typ(),
         }
     }
 
@@ -37,6 +40,7 @@ impl Objecter for Object {
             Object::Integer(o) => o.inspect_value(),
             Object::Boolean(o) => o.inspect_value(),
             Object::Null(o) => o.inspect_value(),
+            Object::ReturnValue(o) => o.inspect_value(),
         }
     }
 }
@@ -83,5 +87,20 @@ impl Objecter for NullObject {
 
     fn inspect_value(&self) -> String {
         "null".to_string()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReturnValueObject {
+    pub value: Box<Object>,
+}
+
+impl Objecter for ReturnValueObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::ReturnValue
+    }
+
+    fn inspect_value(&self) -> String {
+        self.value.inspect_value()
     }
 }

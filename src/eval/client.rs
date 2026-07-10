@@ -3,17 +3,21 @@ use std::ops::Deref;
 use crate::{
     ast::{BlockStatement, Expression, IfExpression, Program, Statement},
     eval::error::EvaluateError,
-    object::{IntegerObject, NullObject, Object, ObjectType, Objecter},
+    object::{IntegerObject, NullObject, Object, ObjectType, Objecter, ReturnValueObject},
 };
 
 pub fn evaluate(program: &Program) -> Result<Object, EvaluateError> {
-    eval_statements(&program.statements)
+    eval_program(&program.statements)
 }
 
-fn eval_statements(stmts: &[Statement]) -> Result<Object, EvaluateError> {
+fn eval_program(stmts: &[Statement]) -> Result<Object, EvaluateError> {
     let mut result = Object::Null(NullObject {});
     for stmt in stmts {
         result = eval_statement(stmt)?;
+
+        if let Object::ReturnValue(result) = result {
+            return Ok(*result.value);
+        }
     }
     Ok(result)
 }
@@ -22,12 +26,28 @@ fn eval_statement(stmt: &Statement) -> Result<Object, EvaluateError> {
     match stmt {
         Statement::Expression(stmt) => eval_expression(&stmt.expr),
         Statement::Block(stmt) => eval_block_statement(stmt),
+        Statement::Return(stmt) => {
+            let value = Box::new(eval_expression(
+                stmt.value
+                    .as_ref()
+                    .ok_or(EvaluateError::ExpectedReturnButNoValueAttached)?,
+            )?);
+            Ok(Object::ReturnValue(ReturnValueObject { value }))
+        }
         _ => Ok(Object::NULL),
     }
 }
 
 fn eval_block_statement(block: &BlockStatement) -> Result<Object, EvaluateError> {
-    eval_statements(&block.statements)
+    let mut result = Object::Null(NullObject {});
+    for stmt in block.statements.iter() {
+        result = eval_statement(stmt)?;
+
+        if result.typ() == ObjectType::ReturnValue {
+            return Ok(result);
+        }
+    }
+    Ok(result)
 }
 
 fn eval_expression(expr: &Expression) -> Result<Object, EvaluateError> {
@@ -479,6 +499,49 @@ mod tests {
                 Expected::Integer(expected) => testutils::test_integer_obj(output, expected),
                 Expected::Null => testutils::test_null_obj(output),
             }
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        struct Test {
+            input: &'static str,
+            expected: i64,
+        }
+
+        let tests = [
+            Test {
+                input: "return 10;",
+                expected: 10,
+            },
+            Test {
+                input: "return 10; 9;",
+                expected: 10,
+            },
+            Test {
+                input: "return 2 * 5; 9;",
+                expected: 10,
+            },
+            Test {
+                input: "9; return 2 * 5; 9;",
+                expected: 10,
+            },
+            Test {
+                input: "
+                    if (10 > 1) {
+                        if (10 > 1) {
+                            return 10;
+                        }
+                        return 1;
+                    }
+",
+                expected: 10,
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input);
+            testutils::test_integer_obj(output, test.expected);
         }
     }
 }
