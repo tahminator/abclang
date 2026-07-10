@@ -1,20 +1,21 @@
 use std::ops::Deref;
 
 use crate::{
-    ast::{BlockStatement, Expression, IfExpression, Program, Statement},
+    ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
     object::{
         ErrorObject, IntegerObject, NullObject, Object, ObjectType, Objecter, ReturnValueObject,
+        environment::Environment,
     },
 };
 
-pub fn evaluate(program: &Program) -> Result<Object, ErrorObject> {
-    eval_program(&program.statements)
+pub fn evaluate(program: &Program, env: &mut Environment) -> Result<Object, ErrorObject> {
+    eval_program(&program.statements, env)
 }
 
-fn eval_program(stmts: &[Statement]) -> Result<Object, ErrorObject> {
+fn eval_program(stmts: &[Statement], env: &mut Environment) -> Result<Object, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in stmts {
-        result = eval_statement(stmt)?;
+        result = eval_statement(stmt, env)?;
 
         let cur_result = std::mem::replace(&mut result, Object::NULL);
 
@@ -30,26 +31,44 @@ fn eval_program(stmts: &[Statement]) -> Result<Object, ErrorObject> {
     Ok(result)
 }
 
-fn eval_statement(stmt: &Statement) -> Result<Object, ErrorObject> {
+fn eval_statement(stmt: &Statement, env: &mut Environment) -> Result<Object, ErrorObject> {
     match stmt {
-        Statement::Expression(stmt) => eval_expression(&stmt.expr),
-        Statement::Block(stmt) => eval_block_statement(stmt),
+        Statement::Expression(stmt) => eval_expression(&stmt.expr, env),
+        Statement::Block(stmt) => eval_block_statement(stmt, env),
         Statement::Return(stmt) => {
-            let expr = eval_expression(stmt.value.as_ref().ok_or(ErrorObject {
-                msg: "expected return but no value attached".to_string(),
-            })?)?;
+            let expr = eval_expression(
+                stmt.value.as_ref().ok_or(ErrorObject {
+                    msg: "expected return but no value attached".to_string(),
+                })?,
+                env,
+            )?;
 
             let value = Box::new(expr);
             Ok(Object::ReturnValue(ReturnValueObject { value }))
+        }
+        Statement::Let(stmt) => {
+            let val = eval_expression(
+                stmt.value.as_ref().ok_or(ErrorObject {
+                    msg: "expected return but no value attached".to_string(),
+                })?,
+                env,
+            )?;
+
+            env.set(stmt.name.value.to_string(), val);
+
+            Ok(Object::NULL)
         }
         _ => Ok(Object::NULL),
     }
 }
 
-fn eval_block_statement(block: &BlockStatement) -> Result<Object, ErrorObject> {
+fn eval_block_statement(
+    block: &BlockStatement,
+    env: &mut Environment,
+) -> Result<Object, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in block.statements.iter() {
-        result = eval_statement(stmt)?;
+        result = eval_statement(stmt, env)?;
 
         if matches!(result.typ(), ObjectType::ReturnValue | ObjectType::Error) {
             return Ok(result);
@@ -58,9 +77,9 @@ fn eval_block_statement(block: &BlockStatement) -> Result<Object, ErrorObject> {
     Ok(result)
 }
 
-fn eval_expression(expr: &Expression) -> Result<Object, ErrorObject> {
+fn eval_expression(expr: &Expression, env: &mut Environment) -> Result<Object, ErrorObject> {
     match expr {
-        Expression::If(expr) => eval_if_expression(expr),
+        Expression::If(expr) => eval_if_expression(expr, env),
         Expression::IntegerLiteral(expr) => {
             Ok(Object::Integer(IntegerObject { value: expr.value }))
         }
@@ -72,16 +91,29 @@ fn eval_expression(expr: &Expression) -> Result<Object, ErrorObject> {
             }
         }
         Expression::Prefix(expr) => {
-            let r = eval_expression(&expr.right)?;
+            let r = eval_expression(&expr.right, env)?;
 
             eval_prefix_expression(expr.op, r)
         }
+        Expression::Identifier(expr) => eval_identifier(expr, env),
         Expression::Infix(expr) => {
-            let l = eval_expression(&expr.left)?;
-            let r = eval_expression(&expr.right)?;
+            let l = eval_expression(&expr.left, env)?;
+            let r = eval_expression(&expr.right, env)?;
             eval_infix_expression(expr.op, l, r)
         }
         _ => Ok(Object::NULL),
+    }
+}
+
+fn eval_identifier(
+    expr: &IdentifierExpression,
+    env: &mut Environment,
+) -> Result<Object, ErrorObject> {
+    match env.get(expr.value) {
+        Some(v) => Ok(v.clone()),
+        None => Err(ErrorObject {
+            msg: format!("identifier not found: {}", expr.value),
+        }),
     }
 }
 
@@ -114,8 +146,11 @@ fn eval_minus_prefix_operator_expr(r: Object) -> Result<Object, ErrorObject> {
     Ok(Object::Integer(IntegerObject { value: -r.value }))
 }
 
-fn eval_if_expression(expr: &IfExpression<'_>) -> Result<Object, ErrorObject> {
-    let cond = eval_expression(&expr.cond)?;
+fn eval_if_expression(
+    expr: &IfExpression<'_>,
+    env: &mut Environment,
+) -> Result<Object, ErrorObject> {
+    let cond = eval_expression(&expr.cond, env)?;
 
     match cond {
         _ if is_truthy(&cond) => {
@@ -123,14 +158,14 @@ fn eval_if_expression(expr: &IfExpression<'_>) -> Result<Object, ErrorObject> {
                 return Ok(Object::NULL);
             };
 
-            eval_block_statement(stmt)
+            eval_block_statement(stmt, env)
         }
         _ if expr.alternative.is_some() => {
             let Some(stmt) = &expr.alternative else {
                 return Ok(Object::NULL);
             };
 
-            eval_block_statement(stmt)
+            eval_block_statement(stmt, env)
         }
         _ => Ok(Object::NULL),
     }
@@ -216,13 +251,15 @@ fn eval_integer_infix_expression(
 
 #[cfg(test)]
 mod tests {
+    use crate::eval::client::tests::testutils::{test_eval, test_integer_obj};
+
     use super::*;
 
     mod testutils {
         use crate::{
             eval::evaluate,
             lexer::Lexer,
-            object::{ErrorObject, Object},
+            object::{ErrorObject, Object, environment::Environment},
             parser::Parser,
         };
 
@@ -230,8 +267,9 @@ mod tests {
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer).unwrap();
             let prog = parser.parse_program().unwrap();
+            let mut env = Environment::default();
 
-            evaluate(&prog)
+            evaluate(&prog, &mut env)
         }
 
         pub fn test_integer_obj(obj: Object, expected: i64) {
@@ -612,6 +650,10 @@ mod tests {
                 ",
                 expected_message: "unknown operator: Boolean + Boolean",
             },
+            Test {
+                input: "foobar",
+                expected_message: "identifier not found: foobar",
+            },
         ];
 
         for test in tests.iter() {
@@ -627,6 +669,37 @@ mod tests {
                     test.expected_message, output.msg
                 )
             }
+        }
+    }
+
+    #[test]
+    fn test_let_statements() {
+        struct Test {
+            input: &'static str,
+            expected: i64,
+        }
+
+        let tests = [
+            Test {
+                input: "let a = 5; a;",
+                expected: 5,
+            },
+            Test {
+                input: "let a = 5 * 5; a;",
+                expected: 25,
+            },
+            Test {
+                input: "let a = 5; let b = a; b;",
+                expected: 5,
+            },
+            Test {
+                input: "let a = 5; let b = a; let c = a + b + 5; c;",
+                expected: 15,
+            },
+        ];
+
+        for test in tests.iter() {
+            test_integer_obj(test_eval(test.input).unwrap(), test.expected);
         }
     }
 }

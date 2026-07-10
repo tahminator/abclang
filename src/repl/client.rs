@@ -3,7 +3,11 @@ use std::io::{BufRead, Write};
 use rustyline::{Editor, Helper, history::History};
 
 use crate::{
-    eval::evaluate, lexer::Lexer, object::Objecter, parser::Parser, repl::error::ReplError,
+    eval::evaluate,
+    lexer::Lexer,
+    object::{Object, Objecter, environment::Environment},
+    parser::Parser,
+    repl::error::ReplError,
 };
 
 static PROMPT: &str = "<< ";
@@ -17,6 +21,8 @@ impl Repl {
     }
 
     pub fn start<H: Helper, I: History>(self, rl: &mut Editor<H, I>) -> Result<(), ReplError> {
+        let mut env = Environment::default();
+
         loop {
             let line = rl.readline(PROMPT)?;
 
@@ -34,11 +40,11 @@ impl Repl {
                 Ok(p) => {
                     if is_debug {
                         println!("{p:#?}")
-                    } else {
-                        let output = match evaluate(&p) {
-                            Ok(o) => o.inspect_value(),
-                            Err(o) => o.inspect_value(),
-                        };
+                    } else if let Some(output) = match evaluate(&p, &mut env) {
+                        Ok(o) if !matches!(o, Object::NULL) => Some(o.inspect_value()),
+                        Err(o) => Some(o.inspect_value()),
+                        _ => None,
+                    } {
                         println!("{output}")
                     }
                 }
