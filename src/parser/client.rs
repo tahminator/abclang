@@ -310,7 +310,7 @@ impl<'a> Parser<'a> {
 
         let value = self.parse_expression(Precedence::Lowest);
 
-        if !self.cur_token_is(TokenType::Semicolon) {
+        if self.peek_token_is(TokenType::Semicolon) {
             self.next_token();
         }
 
@@ -384,8 +384,8 @@ impl<'a> Parser<'a> {
 
         let value = self.parse_expression(Precedence::Lowest);
 
-        if !self.cur_token_is(TokenType::Semicolon) {
-            self.next_token()
+        if self.peek_token_is(TokenType::Semicolon) {
+            self.next_token();
         }
 
         Some(LetStatement { name, token, value })

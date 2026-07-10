@@ -1,10 +1,10 @@
-use std::ops::Deref;
+use std::rc::Rc;
 
 use crate::{
     ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
     object::{
-        ErrorObject, IntegerObject, NullObject, Object, ObjectType, Objecter, ReturnValueObject,
-        environment::Environment,
+        ErrorObject, FunctionObject, IntegerObject, NullObject, Object, ObjectType, Objecter,
+        ReturnValueObject, environment::Environment,
     },
 };
 
@@ -92,6 +92,22 @@ fn eval_expression<'a>(
 ) -> Result<Object<'a>, ErrorObject> {
     match expr {
         Expression::If(expr) => eval_if_expression(expr, env),
+        Expression::FnLiteral(expr) => {
+            let params = expr.params.clone();
+            let body = expr.body.clone();
+            Ok(Object::Function(FunctionObject {
+                params,
+                body,
+                env: env.clone(),
+            }))
+        }
+        Expression::Call(expr) => {
+            let func = eval_expression(&expr.function, env)?;
+
+            let args = eval_expressions(&expr.args, env)?;
+
+            apply_function(func, args)
+        }
         Expression::IntegerLiteral(expr) => {
             Ok(Object::Integer(IntegerObject { value: expr.value }))
         }
@@ -115,6 +131,61 @@ fn eval_expression<'a>(
         }
         _ => Ok(Object::NULL),
     }
+}
+
+fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Result<Object<'a>, ErrorObject> {
+    let Object::Function(func) = func else {
+        return Err(ErrorObject {
+            msg: format!("not a function: {func:?}"),
+        });
+    };
+
+    let body = func.body.clone().ok_or_else(|| ErrorObject {
+        msg: "function body is empty when it should not be".to_string(),
+    })?;
+
+    let mut extended_env = extend_function_env(func, args)?;
+    let output = eval_block_statement(&body, &mut extended_env)?;
+
+    Ok(unwrap_return_value(output))
+}
+
+fn extend_function_env<'a>(
+    func: FunctionObject<'a>,
+    args: Vec<Object<'a>>,
+) -> Result<Environment<'a>, ErrorObject> {
+    let mut env = Environment::new_enclosed(Rc::new(func.env));
+
+    for (i, p) in func.params.iter().enumerate() {
+        env.set(p.value.to_string(), args.get(i).ok_or_else(|| ErrorObject {
+            msg: "when extending function environment, attempting to find an original arg, but cannot find it.".to_string()
+        })?.clone());
+    }
+
+    Ok(env)
+}
+
+fn unwrap_return_value<'a>(o: Object<'a>) -> Object<'a> {
+    if let Object::ReturnValue(o) = o {
+        *o.value
+    } else {
+        o
+    }
+}
+
+fn eval_expressions<'a>(
+    exprs: &Vec<Expression<'a>>,
+    env: &mut Environment<'a>,
+) -> Result<Vec<Object<'a>>, ErrorObject> {
+    let mut results = vec![];
+
+    for e in exprs.iter() {
+        let evald = eval_expression(e, env)?;
+
+        results.push(evald);
+    }
+
+    Ok(results)
 }
 
 fn eval_identifier<'a>(
@@ -218,11 +289,11 @@ fn eval_infix_expression<'a>(
     }
 }
 
-fn eval_integer_infix_expression(
-    op: &str,
+fn eval_integer_infix_expression<'a>(
+    op: &'a str,
     l: IntegerObject,
     r: IntegerObject,
-) -> Result<Object, ErrorObject> {
+) -> Result<Object<'a>, ErrorObject> {
     let lval = l.value;
     let rval = r.value;
 
@@ -279,7 +350,7 @@ mod tests {
             parser::Parser,
         };
 
-        pub fn test_eval(input: &str) -> Result<Object, ErrorObject> {
+        pub fn test_eval<'a>(input: &'a str) -> Result<Object<'a>, ErrorObject> {
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer).unwrap();
             let prog = parser.parse_program().unwrap();
@@ -716,6 +787,74 @@ mod tests {
 
         for test in tests.iter() {
             test_integer_obj(test_eval(test.input).unwrap(), test.expected);
+        }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let input = "fn(x) { x + 2; }";
+        let output = testutils::test_eval(input).unwrap();
+
+        let Object::Function(output) = output else {
+            panic!("expected object function, received {output:?}")
+        };
+
+        if output.params.len() != 1 {
+            panic!(
+                "expected function params to be 1, received {}",
+                output.params.len()
+            )
+        }
+
+        let first_param = output.params.first().unwrap();
+        if first_param.to_string() != "x" {
+            panic!("expected \"x\", received {}", first_param)
+        }
+
+        if output.body.as_ref().unwrap().to_string() != "(x + 2)" {
+            panic!(
+                "expected \"(x + 2)\", recieved {}",
+                output.body.as_ref().unwrap()
+            )
+        }
+    }
+
+    #[test]
+    fn test_function_application() {
+        struct Test {
+            input: &'static str,
+            expected: i64,
+        }
+
+        let tests = [
+            Test {
+                input: "let identity = fn(x) { x; }; identity(5);",
+                expected: 5,
+            },
+            Test {
+                input: "let identity = fn(x) { return x; }; identity(5);",
+                expected: 5,
+            },
+            Test {
+                input: "let double = fn(x) { x * 2; }; double(5);",
+                expected: 10,
+            },
+            Test {
+                input: "let add = fn(x, y) { x + y; }; add(5, 5);",
+                expected: 10,
+            },
+            Test {
+                input: "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));",
+                expected: 20,
+            },
+            Test {
+                input: "fn(x) { x; }(5)",
+                expected: 5,
+            },
+        ];
+
+        for test in tests.iter() {
+            testutils::test_integer_obj(testutils::test_eval(test.input).unwrap(), test.expected);
         }
     }
 }
