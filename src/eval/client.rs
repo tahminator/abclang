@@ -41,6 +41,11 @@ fn eval_expression(expr: &Expression) -> Result<Object, EvaluateError> {
             let r = eval_expression(&expr.right)?;
             Ok(eval_prefix_expression(expr.op, r))
         }
+        Expression::Infix(expr) => {
+            let l = eval_expression(&expr.left)?;
+            let r = eval_expression(&expr.right)?;
+            Ok(eval_infix_expression(expr.op, l, r))
+        }
         _ => Ok(Object::NULL),
     }
 }
@@ -68,6 +73,68 @@ fn eval_minus_prefix_operator_expr(r: Object) -> Object {
     };
 
     return Object::Integer(IntegerObject { value: -r.value });
+}
+
+fn eval_infix_expression(op: &str, l: Object, r: Object) -> Object {
+    match (l, r) {
+        (Object::Integer(ol), Object::Integer(or)) => eval_integer_infix_expression(op, ol, or),
+        (ol, or) if op == "==" => {
+            if ol == or {
+                Object::TRUE
+            } else {
+                Object::FALSE
+            }
+        }
+        (ol, or) if op == "!=" => {
+            if ol != or {
+                Object::TRUE
+            } else {
+                Object::FALSE
+            }
+        }
+        _ => Object::NULL,
+    }
+}
+
+fn eval_integer_infix_expression(op: &str, l: IntegerObject, r: IntegerObject) -> Object {
+    let lval = l.value;
+    let rval = r.value;
+
+    match op {
+        "+" => Object::Integer(IntegerObject { value: lval + rval }),
+        "-" => Object::Integer(IntegerObject { value: lval - rval }),
+        "*" => Object::Integer(IntegerObject { value: lval * rval }),
+        "/" => Object::Integer(IntegerObject { value: lval / rval }),
+        "<" => {
+            if lval < rval {
+                Object::TRUE
+            } else {
+                Object::FALSE
+            }
+        }
+        ">" => {
+            if lval > rval {
+                Object::TRUE
+            } else {
+                Object::FALSE
+            }
+        }
+        "==" => {
+            if lval == rval {
+                Object::TRUE
+            } else {
+                Object::FALSE
+            }
+        }
+        "!=" => {
+            if lval != rval {
+                Object::TRUE
+            } else {
+                Object::FALSE
+            }
+        }
+        _ => Object::NULL,
+    }
 }
 
 #[cfg(test)]
@@ -136,6 +203,50 @@ mod tests {
                 input: "-10",
                 expected: -10,
             },
+            Test {
+                input: "5 + 5 + 5 + 5 - 10",
+                expected: 10,
+            },
+            Test {
+                input: "2 * 2 * 2 * 2 * 2",
+                expected: 32,
+            },
+            Test {
+                input: "-50 + 100 + -50",
+                expected: 0,
+            },
+            Test {
+                input: "5 * 2 + 10",
+                expected: 20,
+            },
+            Test {
+                input: "5 + 2 * 10",
+                expected: 25,
+            },
+            Test {
+                input: "20 + 2 * -10",
+                expected: 0,
+            },
+            Test {
+                input: "50 / 2 * 2 + 10",
+                expected: 60,
+            },
+            Test {
+                input: "2 * (5 + 10)",
+                expected: 30,
+            },
+            Test {
+                input: "3 * 3 * 3 + 10",
+                expected: 37,
+            },
+            Test {
+                input: "3 * (3 * 3) + 10",
+                expected: 37,
+            },
+            Test {
+                input: "(5 + 10 * 2 + 15 / 3) * 2 + -10",
+                expected: 50,
+            },
         ];
 
         for test in tests.iter() {
@@ -159,6 +270,74 @@ mod tests {
             Test {
                 input: "false",
                 expected: false,
+            },
+            Test {
+                input: "1 < 2",
+                expected: true,
+            },
+            Test {
+                input: "1 > 2",
+                expected: false,
+            },
+            Test {
+                input: "1 < 1",
+                expected: false,
+            },
+            Test {
+                input: "1 > 1",
+                expected: false,
+            },
+            Test {
+                input: "1 == 1",
+                expected: true,
+            },
+            Test {
+                input: "1 != 1",
+                expected: false,
+            },
+            Test {
+                input: "1 == 2",
+                expected: false,
+            },
+            Test {
+                input: "1 != 2",
+                expected: true,
+            },
+            Test {
+                input: "true == true",
+                expected: true,
+            },
+            Test {
+                input: "false == false",
+                expected: true,
+            },
+            Test {
+                input: "true == false",
+                expected: false,
+            },
+            Test {
+                input: "true != false",
+                expected: true,
+            },
+            Test {
+                input: "false != true",
+                expected: true,
+            },
+            Test {
+                input: "(1 < 2) == true",
+                expected: true,
+            },
+            Test {
+                input: "(1 < 2) == false",
+                expected: false,
+            },
+            Test {
+                input: "(1 > 2) == true",
+                expected: false,
+            },
+            Test {
+                input: "(1 > 2) == false",
+                expected: true,
             },
         ];
 
