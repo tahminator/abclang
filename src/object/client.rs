@@ -1,9 +1,12 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use strum::Display;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
 pub enum ObjectType {
     Integer,
     Boolean,
     Null,
     ReturnValue,
+    Error,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -12,6 +15,7 @@ pub enum Object {
     Boolean(BooleanObject),
     Null(NullObject),
     ReturnValue(ReturnValueObject),
+    Error(ErrorObject),
 }
 
 impl Object {
@@ -32,6 +36,7 @@ impl Objecter for Object {
             Object::Boolean(o) => o.typ(),
             Object::Null(o) => o.typ(),
             Object::ReturnValue(o) => o.typ(),
+            Object::Error(o) => o.typ(),
         }
     }
 
@@ -41,6 +46,7 @@ impl Objecter for Object {
             Object::Boolean(o) => o.inspect_value(),
             Object::Null(o) => o.inspect_value(),
             Object::ReturnValue(o) => o.inspect_value(),
+            Object::Error(o) => o.inspect_value(),
         }
     }
 }
@@ -102,5 +108,21 @@ impl Objecter for ReturnValueObject {
 
     fn inspect_value(&self) -> String {
         self.value.inspect_value()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ErrorObject {
+    pub msg: String,
+}
+
+impl Objecter for ErrorObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Error
+    }
+
+    fn inspect_value(&self) -> String {
+        let msg = &self.msg;
+        return format!("ERROR: {msg}");
     }
 }

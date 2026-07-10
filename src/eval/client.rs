@@ -3,7 +3,9 @@ use std::ops::Deref;
 use crate::{
     ast::{BlockStatement, Expression, IfExpression, Program, Statement},
     eval::error::EvaluateError,
-    object::{IntegerObject, NullObject, Object, ObjectType, Objecter, ReturnValueObject},
+    object::{
+        ErrorObject, IntegerObject, NullObject, Object, ObjectType, Objecter, ReturnValueObject,
+    },
 };
 
 pub fn evaluate(program: &Program) -> Result<Object, EvaluateError> {
@@ -15,11 +17,25 @@ fn eval_program(stmts: &[Statement]) -> Result<Object, EvaluateError> {
     for stmt in stmts {
         result = eval_statement(stmt)?;
 
-        if let Object::ReturnValue(result) = result {
-            return Ok(*result.value);
+        let cur_result = std::mem::replace(&mut result, Object::NULL);
+
+        match cur_result {
+            Object::ReturnValue(o) => {
+                return Ok(*o.value);
+            }
+            Object::Error(o) => {
+                return Ok(Object::Error(o));
+            }
+            _ => {
+                result = cur_result;
+            }
         }
     }
     Ok(result)
+}
+
+fn is_error_obj(o: &Object) -> bool {
+    matches!(o, Object::Error(_))
 }
 
 fn eval_statement(stmt: &Statement) -> Result<Object, EvaluateError> {
@@ -27,11 +43,16 @@ fn eval_statement(stmt: &Statement) -> Result<Object, EvaluateError> {
         Statement::Expression(stmt) => eval_expression(&stmt.expr),
         Statement::Block(stmt) => eval_block_statement(stmt),
         Statement::Return(stmt) => {
-            let value = Box::new(eval_expression(
+            let expr = eval_expression(
                 stmt.value
                     .as_ref()
                     .ok_or(EvaluateError::ExpectedReturnButNoValueAttached)?,
-            )?);
+            )?;
+            if is_error_obj(&expr) {
+                return Ok(expr);
+            }
+
+            let value = Box::new(expr);
             Ok(Object::ReturnValue(ReturnValueObject { value }))
         }
         _ => Ok(Object::NULL),
@@ -43,7 +64,7 @@ fn eval_block_statement(block: &BlockStatement) -> Result<Object, EvaluateError>
     for stmt in block.statements.iter() {
         result = eval_statement(stmt)?;
 
-        if result.typ() == ObjectType::ReturnValue {
+        if matches!(result.typ(), ObjectType::ReturnValue | ObjectType::Error) {
             return Ok(result);
         }
     }
@@ -65,11 +86,23 @@ fn eval_expression(expr: &Expression) -> Result<Object, EvaluateError> {
         }
         Expression::Prefix(expr) => {
             let r = eval_expression(&expr.right)?;
+
+            if is_error_obj(&r) {
+                return Ok(r);
+            }
+
             Ok(eval_prefix_expression(expr.op, r))
         }
         Expression::Infix(expr) => {
             let l = eval_expression(&expr.left)?;
+            if is_error_obj(&l) {
+                return Ok(l);
+            }
+
             let r = eval_expression(&expr.right)?;
+            if is_error_obj(&r) {
+                return Ok(r);
+            }
             Ok(eval_infix_expression(expr.op, l, r))
         }
         _ => Ok(Object::NULL),
@@ -80,7 +113,9 @@ fn eval_prefix_expression(op: &str, r: Object) -> Object {
     match op {
         "!" => eval_bang_operator_expr(r),
         "-" => eval_minus_prefix_operator_expr(r),
-        _ => Object::NULL,
+        _ => Object::Error(ErrorObject {
+            msg: format!("unknown operator: {op}{}", r.typ()),
+        }),
     }
 }
 
@@ -95,7 +130,9 @@ fn eval_bang_operator_expr(r: Object) -> Object {
 
 fn eval_minus_prefix_operator_expr(r: Object) -> Object {
     let Object::Integer(r) = r else {
-        return Object::NULL;
+        return Object::Error(ErrorObject {
+            msg: format!("unknown operator: -{}", r.typ()),
+        });
     };
 
     Object::Integer(IntegerObject { value: -r.value })
@@ -105,6 +142,7 @@ fn eval_if_expression(expr: &IfExpression<'_>) -> Result<Object, EvaluateError> 
     let cond = eval_expression(&expr.cond)?;
 
     match cond {
+        _ if is_error_obj(&cond) => Ok(cond),
         _ if is_truthy(&cond) => {
             let Some(stmt) = &expr.consequence else {
                 return Ok(Object::NULL);
@@ -149,7 +187,12 @@ fn eval_infix_expression(op: &str, l: Object, r: Object) -> Object {
                 Object::FALSE
             }
         }
-        _ => Object::NULL,
+        (ol, or) if ol.typ() != or.typ() => Object::Error(ErrorObject {
+            msg: format!("type mismatch: {} {op} {}", ol.typ(), or.typ()),
+        }),
+        (ol, or) => Object::Error(ErrorObject {
+            msg: format!("unknown operator: {} {op} {}", ol.typ(), or.typ()),
+        }),
     }
 }
 
@@ -190,7 +233,9 @@ fn eval_integer_infix_expression(op: &str, l: IntegerObject, r: IntegerObject) -
                 Object::FALSE
             }
         }
-        _ => Object::NULL,
+        _ => Object::Error(ErrorObject {
+            msg: format!("unknown operator: {} {op} {}", l.typ(), r.typ()),
+        }),
     }
 }
 
@@ -542,6 +587,66 @@ mod tests {
         for test in tests.iter() {
             let output = testutils::test_eval(test.input);
             testutils::test_integer_obj(output, test.expected);
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        struct Test {
+            input: &'static str,
+            expected_message: &'static str,
+        }
+
+        let tests = [
+            Test {
+                input: "5 + true;",
+                expected_message: "type mismatch: Integer + Boolean",
+            },
+            Test {
+                input: "5 + true; 5;",
+                expected_message: "type mismatch: Integer + Boolean",
+            },
+            Test {
+                input: "-true",
+                expected_message: "unknown operator: -Boolean",
+            },
+            Test {
+                input: "true + false;",
+                expected_message: "unknown operator: Boolean + Boolean",
+            },
+            Test {
+                input: "5; true + false; 5",
+                expected_message: "unknown operator: Boolean + Boolean",
+            },
+            Test {
+                input: "if (10 > 1) { true + false; }",
+                expected_message: "unknown operator: Boolean + Boolean",
+            },
+            Test {
+                input: "if (10 > 1) {
+                            if (10 > 1) {
+                                return true + false;
+                            }
+                                return 1;
+                        }
+                ",
+                expected_message: "unknown operator: Boolean + Boolean",
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input);
+
+            let Object::Error(output) = output else {
+                panic!("expected error object, receieved {output:?}")
+            };
+
+            if output.msg != test.expected_message {
+                panic!(
+                    "expected {}, received {}",
+                    test.expected_message, output.msg
+                )
+            }
         }
     }
 }
