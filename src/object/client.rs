@@ -5,7 +5,7 @@ pub enum ObjectType {
     Null,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Integer(IntegerObject),
     Boolean(BooleanObject),
@@ -41,7 +41,7 @@ impl Objecter for Object {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IntegerObject {
     pub value: i64,
 }
@@ -57,7 +57,7 @@ impl Objecter for IntegerObject {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BooleanObject {
     pub value: bool,
 }
@@ -73,7 +73,7 @@ impl Objecter for BooleanObject {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NullObject {}
 
 impl Objecter for NullObject {
