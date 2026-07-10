@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use crate::{
-    ast::{Expression, Program, Statement},
+    ast::{BlockStatement, Expression, IfExpression, Program, Statement},
     eval::error::EvaluateError,
     object::{IntegerObject, NullObject, Object, ObjectType, Objecter},
 };
@@ -21,12 +21,18 @@ fn eval_statements(stmts: &[Statement]) -> Result<Object, EvaluateError> {
 fn eval_statement(stmt: &Statement) -> Result<Object, EvaluateError> {
     match stmt {
         Statement::Expression(stmt) => eval_expression(&stmt.expr),
+        Statement::Block(stmt) => eval_block_statement(stmt),
         _ => Ok(Object::NULL),
     }
 }
 
+fn eval_block_statement(block: &BlockStatement) -> Result<Object, EvaluateError> {
+    eval_statements(&block.statements)
+}
+
 fn eval_expression(expr: &Expression) -> Result<Object, EvaluateError> {
     match expr {
+        Expression::If(expr) => eval_if_expression(expr),
         Expression::IntegerLiteral(expr) => {
             Ok(Object::Integer(IntegerObject { value: expr.value }))
         }
@@ -72,7 +78,38 @@ fn eval_minus_prefix_operator_expr(r: Object) -> Object {
         return Object::NULL;
     };
 
-    return Object::Integer(IntegerObject { value: -r.value });
+    Object::Integer(IntegerObject { value: -r.value })
+}
+
+fn eval_if_expression(expr: &IfExpression<'_>) -> Result<Object, EvaluateError> {
+    let cond = eval_expression(&expr.cond)?;
+
+    match cond {
+        _ if is_truthy(&cond) => {
+            let Some(stmt) = &expr.consequence else {
+                return Ok(Object::NULL);
+            };
+
+            eval_block_statement(stmt)
+        }
+        _ if expr.alternative.is_some() => {
+            let Some(stmt) = &expr.alternative else {
+                return Ok(Object::NULL);
+            };
+
+            eval_block_statement(stmt)
+        }
+        _ => Ok(Object::NULL),
+    }
+}
+
+fn is_truthy(obj: &Object) -> bool {
+    match *obj {
+        Object::NULL => false,
+        Object::TRUE => true,
+        Object::FALSE => false,
+        _ => true,
+    }
 }
 
 fn eval_infix_expression(op: &str, l: Object, r: Object) -> Object {
@@ -175,6 +212,12 @@ mod tests {
                     "object has wrong value - received {}, expected {expected}",
                     obj.value
                 )
+            }
+        }
+
+        pub fn test_null_obj(obj: Object) {
+            if !matches!(obj, Object::Null(_)) {
+                panic!("expected null object, received {obj:?}")
             }
         }
     }
@@ -384,6 +427,58 @@ mod tests {
         for test in tests.iter() {
             let output = testutils::test_eval(test.input);
             testutils::test_boolean_obj(output, test.expected);
+        }
+    }
+
+    #[test]
+    fn test_if_else_expressions() {
+        enum Expected {
+            Integer(i64),
+            Null,
+        }
+
+        struct Test {
+            input: &'static str,
+            expected: Expected,
+        }
+
+        let tests = [
+            Test {
+                input: "if (true) { 10 }",
+                expected: Expected::Integer(10),
+            },
+            Test {
+                input: "if (false) { 10 }",
+                expected: Expected::Null,
+            },
+            Test {
+                input: "if (1) { 10 }",
+                expected: Expected::Integer(10),
+            },
+            Test {
+                input: "if (1 < 2) { 10 }",
+                expected: Expected::Integer(10),
+            },
+            Test {
+                input: "if (1 > 2) { 10 }",
+                expected: Expected::Null,
+            },
+            Test {
+                input: "if (1 > 2) { 10 } else { 20 }",
+                expected: Expected::Integer(20),
+            },
+            Test {
+                input: "if (1 < 2) { 10 } else { 20 }",
+                expected: Expected::Integer(10),
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input);
+            match test.expected {
+                Expected::Integer(expected) => testutils::test_integer_obj(output, expected),
+                Expected::Null => testutils::test_null_obj(output),
+            }
         }
     }
 }
