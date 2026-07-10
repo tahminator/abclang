@@ -11,8 +11,8 @@ pub struct Program<'a> {
     pub statements: Vec<Statement<'a>>,
 }
 
-impl<'a> Program<'a> {
-    pub fn token_literal(&self) -> &str {
+impl<'a> Node for Program<'a> {
+    fn token_literal(&self) -> &str {
         if !self.statements.is_empty() {
             self.statements[0].token_literal()
         } else {
