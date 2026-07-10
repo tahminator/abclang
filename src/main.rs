@@ -8,7 +8,6 @@ mod repl;
 fn main() {
     println!("welcome to abclang!");
     println!();
-    repl::client::Repl::new()
-        .start(stdin().lock(), stdout().lock())
-        .unwrap()
+    let mut rl = rustyline::DefaultEditor::new().expect("rustyline failed to be initialized");
+    repl::client::Repl::new().start(&mut rl).unwrap()
 }

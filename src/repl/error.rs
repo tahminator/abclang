@@ -1,3 +1,4 @@
+use rustyline::error::ReadlineError;
 use thiserror::Error;
 
 use crate::parser::error::ParserError;
@@ -8,4 +9,6 @@ pub enum ReplError {
     IoError(#[from] std::io::Error),
     #[error("parser error")]
     ParserError(#[from] ParserError),
+    #[error("readline error")]
+    ReadlineError(#[from] ReadlineError),
 }

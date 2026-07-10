@@ -6,6 +6,7 @@ pub trait Node {
     fn token_literal(&self) -> &str;
 }
 
+#[derive(Debug)]
 pub struct Program<'a> {
     pub statements: Vec<Statement<'a>>,
 }
