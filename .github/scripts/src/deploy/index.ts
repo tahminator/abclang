@@ -1,21 +1,10 @@
-import {
-  GitHubClient,
-  Utils,
-  type Environment,
-  EnvClient,
-  EnvClientStrategy,
-} from "@tahminator/pipeline";
+import { GitHubClient } from "@tahminator/pipeline";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
-const { environment, newTagVersion } = await yargs(hideBin(process.argv))
+const { newTagVersion } = await yargs(hideBin(process.argv))
   .option("newTagVersion", {
     type: "string",
-    demandOption: true,
-  })
-  .option("environment", {
-    choices: ["staging", "production"] satisfies Environment[],
-    describe: "Deployment environment (staging or production)",
     demandOption: true,
   })
   .strict()
