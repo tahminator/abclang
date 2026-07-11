@@ -827,4 +827,18 @@ mod tests {
             testutils::test_integer_obj(testutils::test_eval(test.input).unwrap(), test.expected);
         }
     }
+
+    #[test]
+    fn test_closures() {
+        let input = "
+            let newAdder = fn(x) {
+                fn(y) { x + y };
+            };
+
+            let addTwo = newAdder(2);
+            addTwo(2);
+        ";
+
+        testutils::test_integer_obj(testutils::test_eval(input).unwrap(), 4);
+    }
 }
