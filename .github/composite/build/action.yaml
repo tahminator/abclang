@@ -1,0 +1,15 @@
+name: Build image
+description: Builds image and pushes to Docker Hub
+
+outputs:
+  tag:
+    description: "The tag of the built image"
+    value: ${{ steps.build-image.outputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build and push web image
+      shell: bash
+      id: build-image
+      run: bun run .github/scripts/src/build-image --dockerUpload --getGhaOutput=true
