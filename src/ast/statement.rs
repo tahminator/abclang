@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    rc::Rc,
+};
 
 use crate::{
     ast::{Expression, IdentifierExpression, Node},
@@ -6,15 +9,15 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Statement<'a> {
-    Let(LetStatement<'a>),
-    Return(ReturnStatement<'a>),
-    Expression(ExpressionStatement<'a>),
-    Block(BlockStatement<'a>),
+pub enum Statement {
+    Let(LetStatement),
+    Return(ReturnStatement),
+    Expression(ExpressionStatement),
+    Block(BlockStatement),
 }
 
-impl Display for Statement<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for Statement {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let mut w = |x: &dyn Display| write!(f, "{x}");
 
         match self {
@@ -26,8 +29,8 @@ impl Display for Statement<'_> {
     }
 }
 
-impl<'a> Node for Statement<'a> {
-    fn token_literal(&self) -> &str {
+impl Node for Statement {
+    fn token_literal(&self) -> Rc<str> {
         match self {
             Statement::Let(stmt) => stmt.token_literal(),
             Statement::Return(stmt) => stmt.token_literal(),
@@ -38,20 +41,20 @@ impl<'a> Node for Statement<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LetStatement<'a> {
-    pub token: Token<'a>,
-    pub name: IdentifierExpression<'a>,
-    pub value: Option<Expression<'a>>,
+pub struct LetStatement {
+    pub token: Rc<Token>,
+    pub name: IdentifierExpression,
+    pub value: Option<Expression>,
 }
 
-impl<'a> Node for LetStatement<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for LetStatement {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for LetStatement<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for LetStatement {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
             f,
             "{} {} = {};",
@@ -66,19 +69,19 @@ impl Display for LetStatement<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ReturnStatement<'a> {
-    pub token: Token<'a>,
-    pub value: Option<Expression<'a>>,
+pub struct ReturnStatement {
+    pub token: Rc<Token>,
+    pub value: Option<Expression>,
 }
 
-impl<'a> Node for ReturnStatement<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for ReturnStatement {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for ReturnStatement<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for ReturnStatement {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
             f,
             "{} {}",
@@ -92,37 +95,37 @@ impl Display for ReturnStatement<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExpressionStatement<'a> {
-    pub token: Token<'a>,
-    pub expr: Expression<'a>,
+pub struct ExpressionStatement {
+    pub token: Rc<Token>,
+    pub expr: Expression,
 }
 
-impl<'a> Node for ExpressionStatement<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for ExpressionStatement {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for ExpressionStatement<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for ExpressionStatement {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.expr)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BlockStatement<'a> {
-    pub token: Token<'a>,
-    pub statements: Vec<Statement<'a>>,
+pub struct BlockStatement {
+    pub token: Rc<Token>,
+    pub statements: Vec<Statement>,
 }
 
-impl<'a> Node for BlockStatement<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for BlockStatement {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for BlockStatement<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for BlockStatement {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
             f,
             "{}",

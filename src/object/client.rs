@@ -4,7 +4,7 @@ use strum::Display;
 
 use crate::{
     ast::{BlockStatement, IdentifierExpression},
-    object::environment::Environment,
+    object::environment::Env,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
@@ -18,18 +18,18 @@ pub enum ObjectType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Object<'a> {
+pub enum Object {
     Integer(IntegerObject),
     Boolean(BooleanObject),
     Null(NullObject),
-    ReturnValue(ReturnValueObject<'a>),
-    Function(FunctionObject<'a>),
+    ReturnValue(ReturnValueObject),
+    Function(FunctionObject),
 }
 
-impl Object<'static> {
-    pub const NULL: Object<'static> = Object::Null(NullObject {});
-    pub const TRUE: Object<'static> = Object::Boolean(BooleanObject { value: true });
-    pub const FALSE: Object<'static> = Object::Boolean(BooleanObject { value: false });
+impl Object {
+    pub const NULL: Object = Object::Null(NullObject {});
+    pub const TRUE: Object = Object::Boolean(BooleanObject { value: true });
+    pub const FALSE: Object = Object::Boolean(BooleanObject { value: false });
 }
 
 pub trait Objecter {
@@ -37,7 +37,7 @@ pub trait Objecter {
     fn inspect_value(&self) -> String;
 }
 
-impl<'a> Objecter for Object<'a> {
+impl Objecter for Object {
     fn typ(&self) -> ObjectType {
         match self {
             Object::Integer(o) => o.typ(),
@@ -105,11 +105,11 @@ impl Objecter for NullObject {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ReturnValueObject<'a> {
-    pub value: Box<Object<'a>>,
+pub struct ReturnValueObject {
+    pub value: Box<Object>,
 }
 
-impl<'a> Objecter for ReturnValueObject<'a> {
+impl Objecter for ReturnValueObject {
     fn typ(&self) -> ObjectType {
         ObjectType::ReturnValue
     }
@@ -142,13 +142,13 @@ impl FmtDisplay for ErrorObject {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FunctionObject<'a> {
-    pub params: Vec<IdentifierExpression<'a>>,
-    pub body: Option<BlockStatement<'a>>,
-    pub env: Environment<'a>,
+pub struct FunctionObject {
+    pub params: Vec<IdentifierExpression>,
+    pub body: Option<BlockStatement>,
+    pub env: Env,
 }
 
-impl<'a> Objecter for FunctionObject<'a> {
+impl Objecter for FunctionObject {
     fn typ(&self) -> ObjectType {
         ObjectType::Function
     }

@@ -21,16 +21,14 @@ impl Repl {
     }
 
     pub fn start<H: Helper, I: History>(self, rl: &mut Editor<H, I>) -> Result<(), ReplError> {
-        let mut env = Environment::default();
+        let env = Environment::new();
 
         loop {
             let line = rl.readline(PROMPT)?;
-            // TODO: fix hacl
-            let line: &'static str = Box::leak(line.into_boxed_str());
 
             let (line, is_debug) = match line.strip_prefix(DEBUG_PRINT_PARSED_PROG_PREFIX) {
                 Some(s) => (s, true),
-                _ => (line, false),
+                _ => (line.as_str(), false),
             };
 
             rl.add_history_entry(line)?;
@@ -42,7 +40,7 @@ impl Repl {
                 Ok(p) => {
                     if is_debug {
                         println!("{p:#?}")
-                    } else if let Some(output) = match evaluate(&p, &mut env) {
+                    } else if let Some(output) = match evaluate(&p, &env) {
                         Ok(o) if !matches!(o, Object::NULL) => Some(o.inspect_value()),
                         Err(o) => Some(o.inspect_value()),
                         _ => None,

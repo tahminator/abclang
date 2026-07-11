@@ -1,19 +1,19 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 use parse_display::Display;
 use phf::phf_map;
 
-#[derive(Debug, PartialEq, Clone, Copy, Display)]
+#[derive(Debug, PartialEq, Clone, Display)]
 #[display("Token({literal}, {typ})")]
-pub struct Token<'a> {
-    pub literal: &'a str,
+pub struct Token {
+    pub literal: Rc<str>,
     pub typ: TokenType,
 }
 
-impl<'a> Default for Token<'a> {
+impl Default for Token {
     fn default() -> Self {
         Token {
-            literal: "",
+            literal: "".into(),
             typ: TokenType::Eof,
         }
     }
@@ -58,7 +58,7 @@ pub enum TokenType {
 }
 
 impl fmt::Display for TokenType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
             TokenType::Illegal => "ILLEGAL",
             TokenType::Eof => "EOF",

@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::{
+    fmt::{Display, Formatter, Result as FmtResult},
+    rc::Rc,
+};
 
 use crate::{
     ast::{BlockStatement, Node},
@@ -6,19 +9,19 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expression<'a> {
-    Identifier(IdentifierExpression<'a>),
-    IntegerLiteral(IntegerLiteralExpression<'a>),
-    Prefix(PrefixExpression<'a>),
-    Infix(InfixExpression<'a>),
-    Boolean(BooleanExpression<'a>),
-    If(IfExpression<'a>),
-    FnLiteral(FnLiteralExpression<'a>),
-    Call(CallExpression<'a>),
+pub enum Expression {
+    Identifier(IdentifierExpression),
+    IntegerLiteral(IntegerLiteralExpression),
+    Prefix(PrefixExpression),
+    Infix(InfixExpression),
+    Boolean(BooleanExpression),
+    If(IfExpression),
+    FnLiteral(FnLiteralExpression),
+    Call(CallExpression),
 }
 
-impl Display for Expression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for Expression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let mut w = |x: &dyn Display| write!(f, "{x}");
 
         match self {
@@ -35,114 +38,114 @@ impl Display for Expression<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IdentifierExpression<'a> {
-    pub token: Token<'a>,
-    pub value: &'a str,
+pub struct IdentifierExpression {
+    pub token: Rc<Token>,
+    pub value: Rc<str>,
 }
 
-impl<'a> Node for IdentifierExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for IdentifierExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for IdentifierExpression<'_> {
+impl Display for IdentifierExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.value)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IntegerLiteralExpression<'a> {
-    pub token: Token<'a>,
+pub struct IntegerLiteralExpression {
+    pub token: Rc<Token>,
     pub value: i64,
 }
 
-impl<'a> Node for IntegerLiteralExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for IntegerLiteralExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for IntegerLiteralExpression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for IntegerLiteralExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.value)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct PrefixExpression<'a> {
-    pub token: Token<'a>,
-    pub op: &'a str,
-    pub right: Box<Expression<'a>>,
+pub struct PrefixExpression {
+    pub token: Rc<Token>,
+    pub op: Rc<str>,
+    pub right: Rc<Expression>,
 }
 
-impl<'a> Node for PrefixExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for PrefixExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for PrefixExpression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for PrefixExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "({}{})", self.op, self.right)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct InfixExpression<'a> {
-    pub token: Token<'a>,
-    pub left: Box<Expression<'a>>,
-    pub op: &'a str,
-    pub right: Box<Expression<'a>>,
+pub struct InfixExpression {
+    pub token: Rc<Token>,
+    pub left: Rc<Expression>,
+    pub op: Rc<str>,
+    pub right: Rc<Expression>,
 }
 
-impl<'a> Node for InfixExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl<'a> Node for InfixExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for InfixExpression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for InfixExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "({} {} {})", self.left, self.op, self.right)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BooleanExpression<'a> {
-    pub token: Token<'a>,
+pub struct BooleanExpression {
+    pub token: Rc<Token>,
     pub value: bool,
 }
 
-impl<'a> Node for BooleanExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for BooleanExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for BooleanExpression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for BooleanExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.value)
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IfExpression<'a> {
-    pub token: Token<'a>,
-    pub cond: Box<Expression<'a>>,
-    pub consequence: Option<BlockStatement<'a>>,
-    pub alternative: Option<BlockStatement<'a>>,
+pub struct IfExpression {
+    pub token: Rc<Token>,
+    pub cond: Rc<Expression>,
+    pub consequence: Option<BlockStatement>,
+    pub alternative: Option<BlockStatement>,
 }
 
-impl<'a> Node for IfExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for IfExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for IfExpression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for IfExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let stringify = |block: &BlockStatement| {
             block
                 .statements
@@ -172,20 +175,20 @@ impl Display for IfExpression<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FnLiteralExpression<'a> {
-    pub token: Token<'a>,
-    pub params: Vec<IdentifierExpression<'a>>,
-    pub body: Option<BlockStatement<'a>>,
+pub struct FnLiteralExpression {
+    pub token: Rc<Token>,
+    pub params: Vec<IdentifierExpression>,
+    pub body: Option<BlockStatement>,
 }
 
-impl<'a> Node for FnLiteralExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for FnLiteralExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for FnLiteralExpression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for FnLiteralExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
             f,
             "{}({}) {}",
@@ -204,23 +207,23 @@ impl Display for FnLiteralExpression<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CallExpression<'a> {
-    pub token: Token<'a>,
+pub struct CallExpression {
+    pub token: Rc<Token>,
     /**
      * Identifier or FunctionLiteral
      */
-    pub function: Box<Expression<'a>>,
-    pub args: Vec<Expression<'a>>,
+    pub function: Rc<Expression>,
+    pub args: Vec<Expression>,
 }
 
-impl<'a> Node for CallExpression<'a> {
-    fn token_literal(&self) -> &str {
-        self.token.literal
+impl Node for CallExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
     }
 }
 
-impl Display for CallExpression<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Display for CallExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
             f,
             "{}({})",

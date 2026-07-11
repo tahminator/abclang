@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
@@ -11,25 +11,25 @@ use crate::{
     parser::{error::ParserError, precedence::Precedence},
 };
 
-type PrefixParseFn<'a> = fn(&mut Parser<'a>) -> Option<Expression<'a>>;
-type InfixParseFn<'a> = fn(&mut Parser<'a>, expr: Expression<'a>) -> Option<Expression<'a>>;
+type PrefixParseFn = fn(&mut Parser) -> Option<Expression>;
+type InfixParseFn = fn(&mut Parser, expr: Expression) -> Option<Expression>;
 
-pub struct Parser<'a> {
-    lexer: Lexer<'a>,
-    cur_token: Token<'a>,
-    peek_token: Token<'a>,
+pub struct Parser {
+    lexer: Lexer,
+    cur_token: Rc<Token>,
+    peek_token: Rc<Token>,
     errors: Vec<ParserError>,
 
-    prefix_parse_fns: HashMap<TokenType, PrefixParseFn<'a>>,
-    infix_parse_fns: HashMap<TokenType, InfixParseFn<'a>>,
+    prefix_parse_fns: HashMap<TokenType, PrefixParseFn>,
+    infix_parse_fns: HashMap<TokenType, InfixParseFn>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>) -> Result<Self, ParserError> {
+impl Parser {
+    pub fn new(lexer: Lexer) -> Result<Self, ParserError> {
         let mut parser = Self {
             lexer,
-            cur_token: Token::default(),
-            peek_token: Token::default(),
+            cur_token: Token::default().into(),
+            peek_token: Token::default().into(),
             errors: vec![],
             prefix_parse_fns: HashMap::default(),
             infix_parse_fns: HashMap::default(),
@@ -63,15 +63,15 @@ impl<'a> Parser<'a> {
         Ok(parser)
     }
 
-    fn parse_identifier(&mut self) -> Option<Expression<'a>> {
+    fn parse_identifier(&mut self) -> Option<Expression> {
         Some(Expression::Identifier(IdentifierExpression {
-            token: self.cur_token,
-            value: self.cur_token.literal,
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
         }))
     }
 
-    fn parse_integer_literal(&mut self) -> Option<Expression<'a>> {
-        let token = self.cur_token;
+    fn parse_integer_literal(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
 
         let value = match self.cur_token.literal.parse::<i64>() {
             Ok(v) => Some(v),
@@ -87,8 +87,8 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn parse_function_literal(&mut self) -> Option<Expression<'a>> {
-        let token = self.cur_token;
+    fn parse_function_literal(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
 
         if !self.expect_peek(TokenType::LParen) {
             return None;
@@ -109,14 +109,14 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn parse_boolean(&mut self) -> Option<Expression<'a>> {
+    fn parse_boolean(&mut self) -> Option<Expression> {
         Some(Expression::Boolean(BooleanExpression {
-            token: self.cur_token,
+            token: self.cur_token.clone(),
             value: self.cur_token_is(TokenType::True),
         }))
     }
 
-    fn parse_grouped_expression(&mut self) -> Option<Expression<'a>> {
+    fn parse_grouped_expression(&mut self) -> Option<Expression> {
         self.next_token();
 
         let exp = self.parse_expression(Precedence::Lowest);
@@ -128,15 +128,15 @@ impl<'a> Parser<'a> {
         return exp;
     }
 
-    fn parse_if_expression(&mut self) -> Option<Expression<'a>> {
-        let token = self.cur_token;
+    fn parse_if_expression(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
 
         if !self.expect_peek(TokenType::LParen) {
             return None;
         }
 
         self.next_token();
-        let cond = self.parse_expression(Precedence::Lowest)?;
+        let cond = self.parse_expression(Precedence::Lowest)?.into();
 
         if !self.expect_peek(TokenType::RParen) {
             return None;
@@ -148,7 +148,7 @@ impl<'a> Parser<'a> {
 
         let consequence = self.parse_block_statement();
 
-        let mut alternative: Option<BlockStatement<'_>> = None;
+        let mut alternative: Option<BlockStatement> = None;
 
         if self.peek_token_is(TokenType::Else) {
             self.next_token();
@@ -162,60 +162,60 @@ impl<'a> Parser<'a> {
 
         Some(Expression::If(IfExpression {
             token,
-            cond: Box::new(cond),
+            cond,
             consequence,
             alternative,
         }))
     }
 
-    fn parse_prefix_expression(&mut self) -> Option<Expression<'a>> {
-        let token = self.cur_token;
+    fn parse_prefix_expression(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
 
         self.next_token();
 
         Some(Expression::Prefix(PrefixExpression {
+            op: token.literal.clone(),
             token,
-            op: token.literal,
-            right: Box::new(self.parse_expression(Precedence::Prefix)?),
+            right: self.parse_expression(Precedence::Prefix)?.into(),
         }))
     }
 
-    fn parse_infix_expression(&mut self, expr: Expression<'a>) -> Option<Expression<'a>> {
-        let token = self.cur_token;
-        let left = expr;
+    fn parse_infix_expression(&mut self, expr: Expression) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        let left = expr.into();
 
         let precedence = self.cur_precedence();
         self.next_token();
 
-        let right = self.parse_expression(precedence)?;
+        let right = self.parse_expression(precedence)?.into();
 
         Some(Expression::Infix(InfixExpression {
+            left,
+            op: token.literal.clone(),
+            right,
             token,
-            left: Box::new(left),
-            op: token.literal,
-            right: Box::new(right),
         }))
     }
 
-    fn parse_call_expression(&mut self, expr: Expression<'a>) -> Option<Expression<'a>> {
-        let token = self.cur_token;
-        let function = Box::new(expr);
+    fn parse_call_expression(&mut self, expr: Expression) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        let function = expr.into();
         let args = self.parse_call_arguments();
 
         Some(Expression::Call(CallExpression {
-            token,
             function,
+            token,
             args,
         }))
     }
 
     fn next_token(&mut self) {
-        self.cur_token = self.peek_token;
+        self.cur_token = self.peek_token.clone();
         match self.lexer.next_token() {
-            Ok(tok) => self.peek_token = tok,
+            Ok(tok) => self.peek_token = tok.into(),
             Err(e) => {
                 self.errors.push(e.into());
-                self.peek_token = Token::default();
+                self.peek_token = Token::default().into();
             }
         }
     }
@@ -228,7 +228,7 @@ impl<'a> Parser<'a> {
         Precedence::lookup_precedence(self.cur_token.typ)
     }
 
-    fn parse_statement(&mut self) -> Option<Statement<'a>> {
+    fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.typ {
             TokenType::Let => self.parse_let_statement().map(Statement::Let),
             TokenType::Return => self.parse_return_statement().map(Statement::Return),
@@ -236,8 +236,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expression_statement(&mut self) -> Option<ExpressionStatement<'a>> {
-        let token = self.cur_token;
+    fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
+        let token = self.cur_token.clone().into();
 
         let expr = self.parse_expression(Precedence::Lowest)?;
 
@@ -248,7 +248,7 @@ impl<'a> Parser<'a> {
         Some(ExpressionStatement { token, expr })
     }
 
-    fn parse_function_params(&mut self) -> Vec<IdentifierExpression<'a>> {
+    fn parse_function_params(&mut self) -> Vec<IdentifierExpression> {
         let mut idents = vec![];
 
         if self.peek_token_is(TokenType::RParen) {
@@ -259,8 +259,8 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         idents.push(IdentifierExpression {
-            token: self.cur_token,
-            value: self.cur_token.literal,
+            token: self.cur_token.clone().into(),
+            value: self.cur_token.literal.clone(),
         });
 
         while self.peek_token_is(TokenType::Comma) {
@@ -268,8 +268,8 @@ impl<'a> Parser<'a> {
             self.next_token();
 
             idents.push(IdentifierExpression {
-                token: self.cur_token,
-                value: self.cur_token.literal,
+                token: self.cur_token.clone().into(),
+                value: self.cur_token.literal.clone(),
             });
         }
 
@@ -280,7 +280,7 @@ impl<'a> Parser<'a> {
         idents
     }
 
-    fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression<'a>> {
+    fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
         let Some(&prefix) = self.prefix_parse_fns.get(&self.cur_token.typ) else {
             self.errors.push(ParserError::NoPrefixParseFnFound {
                 typ: self.cur_token.typ,
@@ -303,8 +303,8 @@ impl<'a> Parser<'a> {
         Some(left_expr)
     }
 
-    fn parse_return_statement(&mut self) -> Option<ReturnStatement<'a>> {
-        let token = self.cur_token;
+    fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
+        let token = self.cur_token.clone().into();
 
         self.next_token();
 
@@ -317,7 +317,7 @@ impl<'a> Parser<'a> {
         Some(ReturnStatement { token, value })
     }
 
-    fn parse_call_arguments(&mut self) -> Vec<Expression<'a>> {
+    fn parse_call_arguments(&mut self) -> Vec<Expression> {
         let mut args = vec![];
 
         if self.peek_token_is(TokenType::RParen) {
@@ -347,8 +347,8 @@ impl<'a> Parser<'a> {
         args
     }
 
-    fn parse_block_statement(&mut self) -> Option<BlockStatement<'a>> {
-        let token = self.cur_token;
+    fn parse_block_statement(&mut self) -> Option<BlockStatement> {
+        let token = self.cur_token.clone().into();
         let mut statements = vec![];
 
         self.next_token();
@@ -364,16 +364,16 @@ impl<'a> Parser<'a> {
         Some(BlockStatement { token, statements })
     }
 
-    fn parse_let_statement(&mut self) -> Option<LetStatement<'a>> {
-        let token = self.cur_token;
+    fn parse_let_statement(&mut self) -> Option<LetStatement> {
+        let token = self.cur_token.clone();
 
         if !self.expect_peek(TokenType::Ident) {
             return None;
         }
 
         let name = IdentifierExpression {
-            token: self.cur_token,
-            value: self.cur_token.literal,
+            value: self.cur_token.literal.clone(),
+            token: self.cur_token.clone(),
         };
 
         if !self.expect_peek(TokenType::Assign) {
@@ -412,7 +412,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_program(&mut self) -> Result<ast::Program<'a>, Vec<ParserError>> {
+    pub fn parse_program(&mut self) -> Result<ast::Program, Vec<ParserError>> {
         let mut statements = vec![];
 
         while self.cur_token.typ != TokenType::Eof {
@@ -429,11 +429,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn register_prefix(&mut self, typ: TokenType, func: PrefixParseFn<'a>) {
+    fn register_prefix(&mut self, typ: TokenType, func: PrefixParseFn) {
         self.prefix_parse_fns.insert(typ, func);
     }
 
-    fn register_infix(&mut self, typ: TokenType, func: InfixParseFn<'a>) {
+    fn register_infix(&mut self, typ: TokenType, func: InfixParseFn) {
         self.infix_parse_fns.insert(typ, func);
     }
 }
@@ -447,11 +447,11 @@ mod tests {
 
     use super::*;
 
-    struct IdentifierTest<'a> {
-        expected_identifier: &'a str,
+    struct IdentifierTest {
+        expected_identifier: &'static str,
     }
 
-    fn parse_program_or_panic(input: &str) -> Program<'_> {
+    fn parse_program_or_panic(input: &str) -> Program {
         let lexer = lexer::Lexer::new(input);
         let mut parser = Parser::new(lexer).unwrap();
 
@@ -469,7 +469,7 @@ mod tests {
         }
     }
 
-    fn parse_program_with_len(input: &str, expected_len: usize) -> Program<'_> {
+    fn parse_program_with_len(input: &str, expected_len: usize) -> Program {
         let prog = parse_program_or_panic(input);
 
         if prog.statements.len() != expected_len {
@@ -483,7 +483,7 @@ mod tests {
         prog
     }
 
-    fn single_expression<'a>(prog: &'a Program) -> &'a Expression<'a> {
+    fn single_expression(prog: &Program) -> &Expression {
         let Statement::Expression(es) = &prog.statements[0] else {
             panic!(
                 "expected expression statement, received {:?}",
@@ -495,7 +495,7 @@ mod tests {
     }
 
     fn test_let_statement(s: &Statement, name: &str) {
-        if s.token_literal() != "let" {
+        if s.token_literal().as_ref() != "let" {
             panic!(
                 "expected s.token_literal to return \"let\", got {}",
                 s.token_literal()
@@ -506,14 +506,14 @@ mod tests {
             panic!("expected let statement but did not receive that")
         };
 
-        if ls.name.value != name {
+        if ls.name.value.as_ref() != name {
             panic!(
                 "ls.name.value should have been {} but was {}",
                 name, ls.name.value
             )
         }
 
-        if ls.name.token_literal() != name {
+        if ls.name.token_literal().as_ref() != name {
             panic!("statement should have been {} but was {:?}", name, ls.name)
         }
     }
@@ -530,7 +530,7 @@ mod tests {
             )
         }
 
-        if integ.token_literal() != v.to_string() {
+        if integ.token_literal().to_string() != v.to_string() {
             panic!(
                 "integ.token_literal() expected to be {} but was {}",
                 v,
@@ -540,25 +540,25 @@ mod tests {
     }
 
     #[derive(Clone, Copy)]
-    enum Expected<'a> {
+    enum Expected {
         Int(i64),
-        Ident(&'a str),
+        Ident(&'static str),
         Bool(bool),
     }
 
-    impl From<i64> for Expected<'_> {
+    impl From<i64> for Expected {
         fn from(v: i64) -> Self {
             Expected::Int(v)
         }
     }
 
-    impl<'a> From<&'a str> for Expected<'a> {
-        fn from(v: &'a str) -> Self {
+    impl From<&'static str> for Expected {
+        fn from(v: &'static str) -> Self {
             Expected::Ident(v)
         }
     }
 
-    impl From<bool> for Expected<'_> {
+    impl From<bool> for Expected {
         fn from(v: bool) -> Self {
             Expected::Bool(v)
         }
@@ -569,14 +569,14 @@ mod tests {
             panic!("expected identifier expression, received {:?}", expr)
         };
 
-        if ident.value != value {
+        if ident.value.as_ref() != value {
             panic!(
                 "ident.value should have been {} but was {}",
                 value, ident.value
             )
         }
 
-        if ident.token_literal() != value {
+        if ident.token_literal().as_ref() != value {
             panic!(
                 "ident.token_literal() should have been {} but was {}",
                 value,
@@ -597,7 +597,7 @@ mod tests {
             )
         }
 
-        if boolean.token_literal() != value.to_string() {
+        if boolean.token_literal().to_string() != value.to_string() {
             panic!(
                 "boolean.token_literal() should have been {} but was {}",
                 value,
@@ -606,7 +606,7 @@ mod tests {
         }
     }
 
-    fn test_literal_expr<'a>(expr: &Expression, expected: impl Into<Expected<'a>>) {
+    fn test_literal_expr(expr: &Expression, expected: impl Into<Expected>) {
         match expected.into() {
             Expected::Int(v) => test_integer_literal(expr, v),
             Expected::Ident(v) => test_identifier(expr, v),
@@ -614,11 +614,11 @@ mod tests {
         }
     }
 
-    fn test_infix_expr<'a>(
+    fn test_infix_expr(
         expr: &Expression,
-        left: impl Into<Expected<'a>>,
+        left: impl Into<Expected>,
         op: &str,
-        right: impl Into<Expected<'a>>,
+        right: impl Into<Expected>,
     ) {
         let Expression::Infix(infix) = expr else {
             panic!("expected infix expression, received {:?}", expr)
@@ -626,7 +626,7 @@ mod tests {
 
         test_literal_expr(infix.left.as_ref(), left);
 
-        if infix.op != op {
+        if infix.op.as_ref() != op {
             panic!("expected operator {} but was {}", op, infix.op)
         }
 
@@ -638,7 +638,7 @@ mod tests {
         struct Test {
             input: &'static str,
             expected_identifier: &'static str,
-            expected_value: Expected<'static>,
+            expected_value: Expected,
         }
         let tests = [
             Test {
@@ -677,7 +677,7 @@ mod tests {
     fn test_return_statements() {
         struct Test {
             input: &'static str,
-            expected_value: Expected<'static>,
+            expected_value: Expected,
         }
         let tests = [
             Test {
@@ -757,7 +757,7 @@ mod tests {
                 )
             };
 
-            if expr.op != prefix_test.op {
+            if expr.op.as_ref() != prefix_test.op {
                 panic!(
                     "expr.op should have been {}, recieved {}",
                     prefix_test.op, expr.op

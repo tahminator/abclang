@@ -1,28 +1,28 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 use crate::ast::Statement;
 
 pub trait Node {
-    fn token_literal(&self) -> &str;
+    fn token_literal(&self) -> Rc<str>;
 }
 
 #[derive(Debug)]
-pub struct Program<'a> {
-    pub statements: Vec<Statement<'a>>,
+pub struct Program {
+    pub statements: Vec<Statement>,
 }
 
-impl<'a> Node for Program<'a> {
-    fn token_literal(&self) -> &str {
+impl Node for Program {
+    fn token_literal(&self) -> Rc<str> {
         if !self.statements.is_empty() {
             self.statements[0].token_literal()
         } else {
-            ""
+            "".into()
         }
     }
 }
 
-impl fmt::Display for Program<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for stmt in &self.statements {
             write!(f, "{stmt}")?;
         }
@@ -45,21 +45,24 @@ mod tests {
             statements: vec![Statement::Let(LetStatement {
                 token: Token {
                     typ: TokenType::Let,
-                    literal: "let",
-                },
+                    literal: "let".into(),
+                }
+                .into(),
                 name: IdentifierExpression {
                     token: Token {
                         typ: TokenType::Ident,
-                        literal: "myVar",
-                    },
-                    value: "myVar",
+                        literal: "myVar".into(),
+                    }
+                    .into(),
+                    value: "myVar".into(),
                 },
                 value: Some(Expression::Identifier(IdentifierExpression {
                     token: Token {
                         typ: TokenType::Ident,
-                        literal: "anotherVar",
-                    },
-                    value: "anotherVar",
+                        literal: "anotherVar".into(),
+                    }
+                    .into(),
+                    value: "anotherVar".into(),
                 })),
             })],
         };

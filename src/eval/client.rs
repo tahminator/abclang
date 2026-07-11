@@ -4,21 +4,16 @@ use crate::{
     ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
     object::{
         ErrorObject, FunctionObject, IntegerObject, NullObject, Object, ObjectType, Objecter,
-        ReturnValueObject, environment::Environment,
+        ReturnValueObject,
+        environment::{Env, Environment},
     },
 };
 
-pub fn evaluate<'a>(
-    program: &Program<'a>,
-    env: &mut Environment<'a>,
-) -> Result<Object<'a>, ErrorObject> {
+pub fn evaluate(program: &Program, env: &Env) -> Result<Object, ErrorObject> {
     eval_program(&program.statements, env)
 }
 
-fn eval_program<'a>(
-    stmts: &[Statement<'a>],
-    env: &mut Environment<'a>,
-) -> Result<Object<'a>, ErrorObject> {
+fn eval_program(stmts: &[Statement], env: &Env) -> Result<Object, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in stmts {
         result = eval_statement(stmt, env)?;
@@ -37,10 +32,7 @@ fn eval_program<'a>(
     Ok(result)
 }
 
-fn eval_statement<'a>(
-    stmt: &Statement<'a>,
-    env: &mut Environment<'a>,
-) -> Result<Object<'a>, ErrorObject> {
+fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
     match stmt {
         Statement::Expression(stmt) => eval_expression(&stmt.expr, env),
         Statement::Block(stmt) => eval_block_statement(stmt, env),
@@ -63,7 +55,7 @@ fn eval_statement<'a>(
                 env,
             )?;
 
-            env.set(stmt.name.value.to_string(), val);
+            env.borrow_mut().set(stmt.name.value.to_string(), val);
 
             Ok(Object::NULL)
         }
@@ -71,10 +63,7 @@ fn eval_statement<'a>(
     }
 }
 
-fn eval_block_statement<'a>(
-    block: &BlockStatement<'a>,
-    env: &mut Environment<'a>,
-) -> Result<Object<'a>, ErrorObject> {
+fn eval_block_statement(block: &BlockStatement, env: &Env) -> Result<Object, ErrorObject> {
     let mut result = Object::Null(NullObject {});
     for stmt in block.statements.iter() {
         result = eval_statement(stmt, env)?;
@@ -86,10 +75,7 @@ fn eval_block_statement<'a>(
     Ok(result)
 }
 
-fn eval_expression<'a>(
-    expr: &Expression<'a>,
-    env: &mut Environment<'a>,
-) -> Result<Object<'a>, ErrorObject> {
+fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> {
     match expr {
         Expression::If(expr) => eval_if_expression(expr, env),
         Expression::FnLiteral(expr) => {
@@ -121,19 +107,19 @@ fn eval_expression<'a>(
         Expression::Prefix(expr) => {
             let r = eval_expression(&expr.right, env)?;
 
-            eval_prefix_expression(expr.op, r)
+            eval_prefix_expression(expr.op.as_ref(), r)
         }
         Expression::Identifier(expr) => eval_identifier(expr, env),
         Expression::Infix(expr) => {
             let l = eval_expression(&expr.left, env)?;
             let r = eval_expression(&expr.right, env)?;
-            eval_infix_expression(expr.op, l, r)
+            eval_infix_expression(expr.op.as_ref(), l, r)
         }
         _ => Ok(Object::NULL),
     }
 }
 
-fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Result<Object<'a>, ErrorObject> {
+fn apply_function(func: Object, args: Vec<Object>) -> Result<Object, ErrorObject> {
     let Object::Function(func) = func else {
         return Err(ErrorObject {
             msg: format!("not a function: {func:?}"),
@@ -150,14 +136,11 @@ fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Result<Object<
     Ok(unwrap_return_value(output))
 }
 
-fn extend_function_env<'a>(
-    func: FunctionObject<'a>,
-    args: Vec<Object<'a>>,
-) -> Result<Environment<'a>, ErrorObject> {
-    let mut env = Environment::new_enclosed(Rc::new(func.env));
+fn extend_function_env(func: FunctionObject, args: Vec<Object>) -> Result<Env, ErrorObject> {
+    let env = Environment::new_enclosed(func.env);
 
     for (i, p) in func.params.iter().enumerate() {
-        env.set(p.value.to_string(), args.get(i).ok_or_else(|| ErrorObject {
+        env.borrow_mut().set(p.value.to_string(), args.get(i).ok_or_else(|| ErrorObject {
             msg: "when extending function environment, attempting to find an original arg, but cannot find it.".to_string()
         })?.clone());
     }
@@ -165,7 +148,7 @@ fn extend_function_env<'a>(
     Ok(env)
 }
 
-fn unwrap_return_value<'a>(o: Object<'a>) -> Object<'a> {
+fn unwrap_return_value(o: Object) -> Object {
     if let Object::ReturnValue(o) = o {
         *o.value
     } else {
@@ -173,10 +156,7 @@ fn unwrap_return_value<'a>(o: Object<'a>) -> Object<'a> {
     }
 }
 
-fn eval_expressions<'a>(
-    exprs: &Vec<Expression<'a>>,
-    env: &mut Environment<'a>,
-) -> Result<Vec<Object<'a>>, ErrorObject> {
+fn eval_expressions(exprs: &Vec<Expression>, env: &Env) -> Result<Vec<Object>, ErrorObject> {
     let mut results = vec![];
 
     for e in exprs.iter() {
@@ -188,11 +168,8 @@ fn eval_expressions<'a>(
     Ok(results)
 }
 
-fn eval_identifier<'a>(
-    expr: &IdentifierExpression<'a>,
-    env: &mut Environment<'a>,
-) -> Result<Object<'a>, ErrorObject> {
-    match env.get(expr.value) {
+fn eval_identifier(expr: &IdentifierExpression, env: &Env) -> Result<Object, ErrorObject> {
+    match env.borrow().get(expr.value.as_ref()) {
         Some(v) => Ok(v.clone()),
         None => Err(ErrorObject {
             msg: format!("identifier not found: {}", expr.value),
@@ -200,7 +177,7 @@ fn eval_identifier<'a>(
     }
 }
 
-fn eval_prefix_expression<'a>(op: &'a str, r: Object<'a>) -> Result<Object<'a>, ErrorObject> {
+fn eval_prefix_expression(op: &str, r: Object) -> Result<Object, ErrorObject> {
     match op {
         "!" => Ok(eval_bang_operator_expr(r)),
         "-" => eval_minus_prefix_operator_expr(r),
@@ -210,7 +187,7 @@ fn eval_prefix_expression<'a>(op: &'a str, r: Object<'a>) -> Result<Object<'a>, 
     }
 }
 
-fn eval_bang_operator_expr<'a>(r: Object<'a>) -> Object<'a> {
+fn eval_bang_operator_expr(r: Object) -> Object {
     match r {
         Object::TRUE => Object::FALSE,
         Object::FALSE => Object::TRUE,
@@ -219,7 +196,7 @@ fn eval_bang_operator_expr<'a>(r: Object<'a>) -> Object<'a> {
     }
 }
 
-fn eval_minus_prefix_operator_expr<'a>(r: Object<'a>) -> Result<Object<'a>, ErrorObject> {
+fn eval_minus_prefix_operator_expr(r: Object) -> Result<Object, ErrorObject> {
     let Object::Integer(r) = r else {
         return Err(ErrorObject {
             msg: format!("unknown operator: -{}", r.typ()),
@@ -229,10 +206,7 @@ fn eval_minus_prefix_operator_expr<'a>(r: Object<'a>) -> Result<Object<'a>, Erro
     Ok(Object::Integer(IntegerObject { value: -r.value }))
 }
 
-fn eval_if_expression<'a>(
-    expr: &IfExpression<'a>,
-    env: &mut Environment<'a>,
-) -> Result<Object<'a>, ErrorObject> {
+fn eval_if_expression(expr: &IfExpression, env: &Env) -> Result<Object, ErrorObject> {
     let cond = eval_expression(&expr.cond, env)?;
 
     match cond {
@@ -263,11 +237,7 @@ fn is_truthy(obj: &Object) -> bool {
     }
 }
 
-fn eval_infix_expression<'a>(
-    op: &'a str,
-    l: Object<'a>,
-    r: Object<'a>,
-) -> Result<Object<'a>, ErrorObject> {
+fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, ErrorObject> {
     match (l, r) {
         (Object::Integer(ol), Object::Integer(or)) => eval_integer_infix_expression(op, ol, or),
         (ol, or) if op == "==" => Ok(if ol == or {
@@ -289,11 +259,11 @@ fn eval_infix_expression<'a>(
     }
 }
 
-fn eval_integer_infix_expression<'a>(
-    op: &'a str,
+fn eval_integer_infix_expression(
+    op: &str,
     l: IntegerObject,
     r: IntegerObject,
-) -> Result<Object<'a>, ErrorObject> {
+) -> Result<Object, ErrorObject> {
     let lval = l.value;
     let rval = r.value;
 
@@ -350,13 +320,13 @@ mod tests {
             parser::Parser,
         };
 
-        pub fn test_eval<'a>(input: &'a str) -> Result<Object<'a>, ErrorObject> {
+        pub fn test_eval(input: &str) -> Result<Object, ErrorObject> {
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer).unwrap();
             let prog = parser.parse_program().unwrap();
-            let mut env = Environment::default();
+            let env = Environment::new();
 
-            evaluate(&prog, &mut env)
+            evaluate(&prog, &env)
         }
 
         pub fn test_integer_obj(obj: Object, expected: i64) {
