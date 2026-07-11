@@ -1,0 +1,16 @@
+name: "Setup"
+description: "Setup dependencies required to run pipelines"
+
+inputs:
+  SECRETS:
+    description: "Pass toJSON(secrets) from the calling workflow to expose all secrets as env vars."
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup
+      uses: tahminator/pipeline/actions/setup@1.0.65
+      with:
+        SECRETS: ${{ inputs.SECRETS }}
