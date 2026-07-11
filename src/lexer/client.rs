@@ -71,10 +71,17 @@ impl Lexer {
                     }
                 }
             }
-            b'/' => Token {
-                literal: "/".into(),
-                typ: TokenType::Slash,
-            },
+            b'/' => {
+                if let Some(b'/') = self.peek_char() {
+                    self.skip_comment();
+                    self.next_token()?
+                } else {
+                    Token {
+                        literal: "/".into(),
+                        typ: TokenType::Slash,
+                    }
+                }
+            }
             b'*' => Token {
                 literal: "*".into(),
                 typ: TokenType::Asterisk,
@@ -137,6 +144,12 @@ impl Lexer {
 
         self.read_char();
         Ok(tok)
+    }
+
+    fn skip_comment(&mut self) {
+        while self.ch != b'\n' && self.ch != 0 {
+            self.read_char();
+        }
     }
 
     fn read_identifier(&mut self) -> Result<&str, LexerError> {
@@ -1242,6 +1255,51 @@ if (5 < 10) {
             Token {
                 typ: TokenType::Int,
                 literal: "9".into(),
+            },
+            Token {
+                typ: TokenType::Eof,
+                literal: "".into(),
+            },
+        ];
+
+        for output in outputs {
+            match lexer.next_token() {
+                Ok(token) => {
+                    assert_eq!(token, output);
+                }
+                Err(e) => panic!("{}", e),
+            }
+        }
+    }
+
+    #[test]
+    fn test_comment() {
+        let input = "// cyz
+        let x = 5;
+        ";
+
+        let mut lexer = Lexer::new(input);
+
+        let outputs: [Token; 6] = [
+            Token {
+                typ: TokenType::Let,
+                literal: "let".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "x".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "5".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
             },
             Token {
                 typ: TokenType::Eof,
