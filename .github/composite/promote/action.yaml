@@ -14,4 +14,4 @@ runs:
   steps:
     - name: Deploy image tag
       shell: bash
-      run: bun run .github/scripts/src/promote --originalTag "${{ inputs.ORIGINAL_TAG }}" --newGithubTag "${{ inputs.NEW_GITHUB_TAG }}"
+      run: bun run .github/scripts/src/promote-image --originalTag "${{ inputs.ORIGINAL_TAG }}" --newGithubTag "${{ inputs.NEW_GITHUB_TAG }}"
