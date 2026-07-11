@@ -34,7 +34,7 @@ async function main() {
     dockerHubPat,
   );
 
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date().toISOString().replace(/:/g, "-");
 
   const gitSha = (await $`git rev-parse --short HEAD`.text()).trim();
 
