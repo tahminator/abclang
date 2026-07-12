@@ -18,6 +18,7 @@ pub enum Expression {
     If(IfExpression),
     FnLiteral(FnLiteralExpression),
     Call(CallExpression),
+    String(StringExpression),
 }
 
 impl Display for Expression {
@@ -33,6 +34,7 @@ impl Display for Expression {
             Expression::If(expr) => w(expr),
             Expression::FnLiteral(expr) => w(expr),
             Expression::Call(expr) => w(expr),
+            Expression::String(expr) => w(expr),
         }
     }
 }
@@ -234,5 +236,23 @@ impl Display for CallExpression {
                 .collect::<Vec<_>>()
                 .join(", "),
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringExpression {
+    pub token: Rc<Token>,
+    pub value: Rc<str>,
+}
+
+impl Node for StringExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for StringExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.token_literal())
     }
 }

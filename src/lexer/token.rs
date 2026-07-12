@@ -57,6 +57,7 @@ pub enum TokenType {
     Return,
 
     Comment,
+    String,
 }
 
 impl fmt::Display for TokenType {
@@ -90,6 +91,7 @@ impl fmt::Display for TokenType {
             TokenType::Eq => "==",
             TokenType::NotEq => "!=",
             TokenType::Comment => "//",
+            TokenType::String => "String",
         };
         f.write_str(s)
     }
