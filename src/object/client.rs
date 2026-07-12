@@ -19,6 +19,7 @@ pub enum ObjectType {
     Error,
     Function,
     String,
+    BuiltIn,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,6 +30,7 @@ pub enum Object {
     ReturnValue(ReturnValueObject),
     Function(FunctionObject),
     String(StringObject),
+    BuiltIn(BuiltInFunctionObject),
 }
 
 impl Object {
@@ -51,6 +53,7 @@ impl Objecter for Object {
             Object::ReturnValue(o) => o.typ(),
             Object::Function(o) => o.typ(),
             Object::String(o) => o.typ(),
+            Object::BuiltIn(o) => o.typ(),
         }
     }
 
@@ -62,6 +65,7 @@ impl Objecter for Object {
             Object::ReturnValue(o) => o.inspect_value(),
             Object::Function(o) => o.inspect_value(),
             Object::String(o) => o.inspect_value(),
+            Object::BuiltIn(o) => o.inspect_value(),
         }
     }
 }
@@ -188,5 +192,29 @@ impl Objecter for StringObject {
 
     fn inspect_value(&self) -> String {
         self.value.to_string()
+    }
+}
+
+type BuiltInFunction = fn(args: &[Object]) -> Result<Object, ErrorObject>;
+
+#[derive(Debug, Clone)]
+pub struct BuiltInFunctionObject {
+    pub function: BuiltInFunction,
+    pub function_name: &'static str,
+}
+
+impl PartialEq for BuiltInFunctionObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.function_name == other.function_name
+    }
+}
+
+impl Objecter for BuiltInFunctionObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::BuiltIn
+    }
+
+    fn inspect_value(&self) -> String {
+        "builtin function".into()
     }
 }
