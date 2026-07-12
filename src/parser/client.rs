@@ -142,7 +142,7 @@ impl Parser {
             return None;
         }
 
-        return exp;
+        exp
     }
 
     fn parse_if_expression(&mut self) -> Option<Expression> {
@@ -269,7 +269,7 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
-        let token = self.cur_token.clone().into();
+        let token = self.cur_token.clone();
 
         let expr = self.parse_expression(Precedence::Lowest)?;
 
@@ -291,7 +291,7 @@ impl Parser {
         self.next_token();
 
         idents.push(IdentifierExpression {
-            token: self.cur_token.clone().into(),
+            token: self.cur_token.clone(),
             value: self.cur_token.literal.clone(),
         });
 
@@ -300,7 +300,7 @@ impl Parser {
             self.next_token();
 
             idents.push(IdentifierExpression {
-                token: self.cur_token.clone().into(),
+                token: self.cur_token.clone(),
                 value: self.cur_token.literal.clone(),
             });
         }
@@ -360,7 +360,7 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
-        let token = self.cur_token.clone().into();
+        let token = self.cur_token.clone();
 
         self.next_token();
 
@@ -373,46 +373,45 @@ impl Parser {
         Some(ReturnStatement { token, value })
     }
 
-    fn parse_call_arguments(&mut self) -> Vec<Expression> {
-        let mut args = vec![];
-
-        if self.peek_token_is(TokenType::RParen) {
-            self.next_token();
-            return args;
-        }
-
-        self.next_token();
-        let Some(arg) = self.parse_expression(Precedence::Lowest) else {
-            return args;
-        };
-        args.push(arg);
-
-        while self.peek_token_is(TokenType::Comma) {
-            self.next_token();
-            self.next_token();
-            let Some(arg) = self.parse_expression(Precedence::Lowest) else {
-                return args;
-            };
-            args.push(arg);
-        }
-
-        if !self.expect_peek(TokenType::RParen) {
-            return vec![];
-        }
-
-        args
-    }
+    // fn parse_call_arguments(&mut self) -> Vec<Expression> {
+    //     let mut args = vec![];
+    //
+    //     if self.peek_token_is(TokenType::RParen) {
+    //         self.next_token();
+    //         return args;
+    //     }
+    //
+    //     self.next_token();
+    //     let Some(arg) = self.parse_expression(Precedence::Lowest) else {
+    //         return args;
+    //     };
+    //     args.push(arg);
+    //
+    //     while self.peek_token_is(TokenType::Comma) {
+    //         self.next_token();
+    //         self.next_token();
+    //         let Some(arg) = self.parse_expression(Precedence::Lowest) else {
+    //             return args;
+    //         };
+    //         args.push(arg);
+    //     }
+    //
+    //     if !self.expect_peek(TokenType::RParen) {
+    //         return vec![];
+    //     }
+    //
+    //     args
+    // }
 
     fn parse_block_statement(&mut self) -> Option<BlockStatement> {
-        let token = self.cur_token.clone().into();
+        let token = self.cur_token.clone();
         let mut statements = vec![];
 
         self.next_token();
 
         while !self.cur_token_is(TokenType::RBrace) && !self.cur_token_is(TokenType::Eof) {
-            match self.parse_statement() {
-                Some(stmt) => statements.push(stmt),
-                None => (),
+            if let Some(stmt) = self.parse_statement() {
+                statements.push(stmt)
             }
             self.next_token();
         }
@@ -502,10 +501,6 @@ mod tests {
     };
 
     use super::*;
-
-    struct IdentifierTest {
-        expected_identifier: &'static str,
-    }
 
     fn parse_program_or_panic(input: &str) -> Program {
         let lexer = lexer::Lexer::new(input);
@@ -1216,7 +1211,7 @@ mod tests {
 
         let prog = parse_program_with_len(input, 1);
 
-        let stmt = prog.statements.get(0).unwrap().clone();
+        let stmt = prog.statements.first().unwrap().clone();
         let Statement::Expression(stmt) = stmt else {
             panic!("expected statement expr, received {stmt:?}")
         };
@@ -1236,7 +1231,7 @@ mod tests {
 
         let prog = parse_program_with_len(input, 1);
 
-        let stmt = prog.statements.get(0).unwrap().clone();
+        let stmt = prog.statements.first().unwrap().clone();
         let Statement::Expression(stmt) = stmt else {
             panic!("expected statement expr, received {stmt:?}")
         };

@@ -1,5 +1,3 @@
-use std::io::{BufRead, Write};
-
 use rustyline::{Editor, Helper, history::History};
 
 use crate::{
@@ -60,5 +58,11 @@ impl Repl {
                 }
             }
         }
+    }
+}
+
+impl Default for Repl {
+    fn default() -> Self {
+        Self::new()
     }
 }
