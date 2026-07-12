@@ -76,7 +76,7 @@ impl Lexer {
             b'/' => {
                 if let Some(b'/') = self.peek_char() {
                     self.skip_comment();
-                    self.next_token()?
+                    return self.next_token();
                 } else {
                     Token {
                         literal: "/".into(),
