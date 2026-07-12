@@ -1,5 +1,3 @@
-use std::{rc::Rc, sync::Arc};
-
 use crate::lexer::{
     error::LexerError,
     token::{Token, TokenType, lookup_ident},

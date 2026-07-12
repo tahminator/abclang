@@ -1,5 +1,3 @@
-use phf::{Map, phf_map};
-
 use crate::lexer::TokenType;
 
 #[derive(PartialEq, PartialOrd)]

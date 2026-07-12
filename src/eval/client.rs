@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{
     ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
     eval::builtins::BUILTINS,
@@ -60,7 +58,6 @@ fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
 
             Ok(Object::NULL)
         }
-        _ => Ok(Object::NULL),
     }
 }
 
@@ -135,8 +132,8 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object, ErrorObject
                 msg: "function body is empty when it should not be".to_string(),
             })?;
 
-            let mut extended_env = extend_function_env(func, args)?;
-            let output = eval_block_statement(&body, &mut extended_env)?;
+            let extended_env = extend_function_env(func, args)?;
+            let output = eval_block_statement(&body, &extended_env)?;
 
             Ok(unwrap_return_value(output))
         }
@@ -167,7 +164,7 @@ fn unwrap_return_value(o: Object) -> Object {
     }
 }
 
-fn eval_expressions(exprs: &Vec<Expression>, env: &Env) -> Result<Vec<Object>, ErrorObject> {
+fn eval_expressions(exprs: &[Expression], env: &Env) -> Result<Vec<Object>, ErrorObject> {
     let mut results = vec![];
 
     for e in exprs.iter() {
