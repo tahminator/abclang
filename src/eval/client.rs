@@ -4,7 +4,7 @@ use crate::{
     ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
     object::{
         ErrorObject, FunctionObject, IntegerObject, NullObject, Object, ObjectType, Objecter,
-        ReturnValueObject,
+        ReturnValueObject, StringObject,
         environment::{Env, Environment},
     },
 };
@@ -115,6 +115,9 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
             let r = eval_expression(&expr.right, env)?;
             eval_infix_expression(expr.op.as_ref(), l, r)
         }
+        Expression::String(expr) => Ok(Object::String(StringObject {
+            value: expr.value.clone(),
+        })),
         _ => Ok(Object::NULL),
     }
 }
@@ -240,6 +243,7 @@ fn is_truthy(obj: &Object) -> bool {
 fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, ErrorObject> {
     match (l, r) {
         (Object::Integer(ol), Object::Integer(or)) => eval_integer_infix_expression(op, ol, or),
+        (Object::String(ol), Object::String(or)) => eval_string_infix_expression(op, ol, or),
         (ol, or) if op == "==" => Ok(if ol == or {
             Object::TRUE
         } else {
@@ -255,6 +259,21 @@ fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, Error
         }),
         (ol, or) => Err(ErrorObject {
             msg: format!("unknown operator: {} {op} {}", ol.typ(), or.typ()),
+        }),
+    }
+}
+
+fn eval_string_infix_expression(
+    op: &str,
+    l: StringObject,
+    r: StringObject,
+) -> Result<Object, ErrorObject> {
+    match op {
+        "+" => Ok(Object::String(StringObject {
+            value: format!("{}{}", l.value, r.value).into(),
+        })),
+        _ => Err(ErrorObject {
+            msg: format!("unknown operator: {} {op} {}", l.typ(), r.typ()),
         }),
     }
 }
@@ -711,6 +730,10 @@ mod tests {
                 input: "foobar",
                 expected_message: "identifier not found: foobar",
             },
+            Test {
+                input: "\"hello\" - \"world\"",
+                expected_message: "unknown operator: String - String",
+            },
         ];
 
         for test in tests.iter() {
@@ -840,5 +863,33 @@ mod tests {
         ";
 
         testutils::test_integer_obj(testutils::test_eval(input).unwrap(), 4);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let input = "\"hello world\"";
+
+        let output = testutils::test_eval(input).unwrap();
+        let Object::String(output) = output else {
+            panic!("expected string object, recieved {output:?}")
+        };
+
+        if output.value.as_ref() != "hello world" {
+            panic!("expected \"hello world\", received \"{}\"", output.value)
+        }
+    }
+
+    #[test]
+    fn test_string_concat() {
+        let input = "\"hello\" + \" \" + \"world\"";
+
+        let output = testutils::test_eval(input).unwrap();
+        let Object::String(output) = output else {
+            panic!("expected string object, recieved {output:?}")
+        };
+
+        if output.value.as_ref() != "hello world" {
+            panic!("expected \"hello world\", received \"{}\"", output.value)
+        }
     }
 }

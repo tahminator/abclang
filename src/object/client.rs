@@ -1,4 +1,7 @@
-use std::fmt::{Display as FmtDisplay, Formatter, Result as FmtResult};
+use std::{
+    fmt::{Display as FmtDisplay, Formatter, Result as FmtResult},
+    rc::Rc,
+};
 
 use strum::Display;
 
@@ -15,6 +18,7 @@ pub enum ObjectType {
     ReturnValue,
     Error,
     Function,
+    String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,6 +28,7 @@ pub enum Object {
     Null(NullObject),
     ReturnValue(ReturnValueObject),
     Function(FunctionObject),
+    String(StringObject),
 }
 
 impl Object {
@@ -45,6 +50,7 @@ impl Objecter for Object {
             Object::Null(o) => o.typ(),
             Object::ReturnValue(o) => o.typ(),
             Object::Function(o) => o.typ(),
+            Object::String(o) => o.typ(),
         }
     }
 
@@ -55,6 +61,7 @@ impl Objecter for Object {
             Object::Null(o) => o.inspect_value(),
             Object::ReturnValue(o) => o.inspect_value(),
             Object::Function(o) => o.inspect_value(),
+            Object::String(o) => o.inspect_value(),
         }
     }
 }
@@ -166,5 +173,20 @@ impl Objecter for FunctionObject {
                 .map(|b| b.to_string())
                 .unwrap_or_else(|| "None".to_string())
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringObject {
+    pub value: Rc<str>,
+}
+
+impl Objecter for StringObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::String
+    }
+
+    fn inspect_value(&self) -> String {
+        self.value.to_string()
     }
 }

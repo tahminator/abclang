@@ -5,7 +5,7 @@ use crate::{
         self, BlockStatement, BooleanExpression, CallExpression, Expression, ExpressionStatement,
         FnLiteralExpression, IdentifierExpression, IfExpression, InfixExpression,
         IntegerLiteralExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
-        Statement,
+        Statement, StringExpression,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -44,6 +44,7 @@ impl Parser {
         parser.register_prefix(TokenType::LParen, Parser::parse_grouped_expression);
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
         parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
+        parser.register_prefix(TokenType::String, Parser::parse_string_literal);
 
         let infix_func = Parser::parse_infix_expression;
         parser.register_infix(TokenType::Plus, infix_func);
@@ -65,6 +66,13 @@ impl Parser {
 
     fn parse_identifier(&mut self) -> Option<Expression> {
         Some(Expression::Identifier(IdentifierExpression {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        }))
+    }
+
+    fn parse_string_literal(&mut self) -> Option<Expression> {
+        Some(Expression::String(StringExpression {
             token: self.cur_token.clone(),
             value: self.cur_token.literal.clone(),
         }))
@@ -1144,5 +1152,25 @@ mod tests {
         test_literal_expr(&exp.args.first().unwrap().clone(), 1);
         test_infix_expr(exp.args.get(1).unwrap(), 2, "*", 3);
         test_infix_expr(exp.args.get(2).unwrap(), 4, "+", 5);
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = "\"hello world\"";
+
+        let prog = parse_program_with_len(input, 1);
+
+        let stmt = prog.statements.get(0).unwrap().clone();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected statement expr, received {stmt:?}")
+        };
+
+        let Expression::String(expr) = stmt.expr else {
+            panic!("expected statement expr, received {:?}", stmt.expr)
+        };
+
+        if expr.value.as_ref() != "hello world" {
+            panic!("expected \"hello world\", receieved {}", expr.value)
+        }
     }
 }
