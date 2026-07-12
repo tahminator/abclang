@@ -109,5 +109,3 @@ fib(10);
 `,
   },
 ];
-
-export const defaultExample = examples[0];

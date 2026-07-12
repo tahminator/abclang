@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { run } from "../lib/interpreter";
-import { defaultExample, examples } from "../lib/examples";
+import { examples } from "../lib/examples";
 
 export type RunResult = {
   output: string;
@@ -8,8 +8,8 @@ export type RunResult = {
 };
 
 export function useEditor() {
-  const [code, setCode] = useState(defaultExample.code);
-  const [selected, setSelected] = useState(defaultExample.name);
+  const [code, setCode] = useState("");
+  const [selected, setSelected] = useState("");
   const [result, setResult] = useState<RunResult>({
     output: "",
     hasRun: false,
