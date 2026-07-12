@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
+    eval::builtins::BUILTINS,
     object::{
         ErrorObject, FunctionObject, IntegerObject, NullObject, Object, ObjectType, Objecter,
         ReturnValueObject, StringObject,
@@ -123,20 +124,22 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
 }
 
 fn apply_function(func: Object, args: Vec<Object>) -> Result<Object, ErrorObject> {
-    let Object::Function(func) = func else {
-        return Err(ErrorObject {
+    match func {
+        Object::Function(func) => {
+            let body = func.body.clone().ok_or_else(|| ErrorObject {
+                msg: "function body is empty when it should not be".to_string(),
+            })?;
+
+            let mut extended_env = extend_function_env(func, args)?;
+            let output = eval_block_statement(&body, &mut extended_env)?;
+
+            Ok(unwrap_return_value(output))
+        }
+        Object::BuiltIn(func) => (func.function)(&args),
+        _ => Err(ErrorObject {
             msg: format!("not a function: {func:?}"),
-        });
-    };
-
-    let body = func.body.clone().ok_or_else(|| ErrorObject {
-        msg: "function body is empty when it should not be".to_string(),
-    })?;
-
-    let mut extended_env = extend_function_env(func, args)?;
-    let output = eval_block_statement(&body, &mut extended_env)?;
-
-    Ok(unwrap_return_value(output))
+        }),
+    }
 }
 
 fn extend_function_env(func: FunctionObject, args: Vec<Object>) -> Result<Env, ErrorObject> {
@@ -174,9 +177,12 @@ fn eval_expressions(exprs: &Vec<Expression>, env: &Env) -> Result<Vec<Object>, E
 fn eval_identifier(expr: &IdentifierExpression, env: &Env) -> Result<Object, ErrorObject> {
     match env.borrow().get(expr.value.as_ref()) {
         Some(v) => Ok(v.clone()),
-        None => Err(ErrorObject {
-            msg: format!("identifier not found: {}", expr.value),
-        }),
+        None => match BUILTINS.get(expr.value.as_ref()) {
+            Some(v) => Ok(Object::BuiltIn(v.clone())),
+            None => Err(ErrorObject {
+                msg: format!("identifier not found: {}", expr.value),
+            }),
+        },
     }
 }
 
@@ -890,6 +896,57 @@ mod tests {
 
         if output.value.as_ref() != "hello world" {
             panic!("expected \"hello world\", received \"{}\"", output.value)
+        }
+    }
+
+    #[test]
+    fn test_builtin_functions() {
+        enum Expected {
+            String(String),
+            Integer(i64),
+        }
+        struct Test {
+            input: &'static str,
+            expected: Expected,
+        }
+
+        let tests = [
+            Test {
+                input: "len(\"\")",
+                expected: Expected::Integer(0),
+            },
+            Test {
+                input: "len(\"four\")",
+                expected: Expected::Integer(4),
+            },
+            Test {
+                input: "len(\"hello world\")",
+                expected: Expected::Integer(11),
+            },
+            Test {
+                input: "len(1)",
+                expected: Expected::String("argument to `len` not supported, got Integer".into()),
+            },
+            Test {
+                input: "len(\"one\", \"two\")",
+                expected: Expected::String("wrong number of arguments. got=2, want=1".into()),
+            },
+        ];
+
+        for test in tests.iter() {
+            match &test.expected {
+                Expected::String(expected) => {
+                    if let Err(e) = testutils::test_eval(test.input)
+                        && e.msg != *expected
+                    {
+                        panic!("expected {expected}, received {}", e.msg)
+                    }
+                }
+                Expected::Integer(i) => {
+                    let output = testutils::test_eval(test.input).unwrap();
+                    testutils::test_integer_obj(output, *i)
+                }
+            }
         }
     }
 }

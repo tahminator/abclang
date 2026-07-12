@@ -38,6 +38,17 @@ max(21, 7);
 `,
   },
   {
+    name: "builtins",
+    code: `// abclang has some default builtins you may use
+
+// len() can be called on any string to output total length of string
+let firstname = "johnny";
+let lastname = "appleseed";
+let fullname = firstname + " " + lastname;
+len(fullname)
+`,
+  },
+  {
     name: "functions",
     code: `// functions are first-class values bound with let.
 let double = fn(x) { x * 2 };
