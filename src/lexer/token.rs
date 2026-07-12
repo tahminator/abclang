@@ -58,6 +58,9 @@ pub enum TokenType {
 
     Comment,
     String,
+
+    LBracket,
+    RBracket,
 }
 
 impl fmt::Display for TokenType {
@@ -92,6 +95,8 @@ impl fmt::Display for TokenType {
             TokenType::NotEq => "!=",
             TokenType::Comment => "//",
             TokenType::String => "String",
+            TokenType::LBracket => "[",
+            TokenType::RBracket => "]",
         };
         f.write_str(s)
     }

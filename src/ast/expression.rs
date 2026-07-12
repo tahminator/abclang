@@ -8,8 +8,24 @@ use crate::{
     lexer::token::Token,
 };
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
+macro_rules! expr {
+    ($($variant:ident($ty:ty)),* $(,)?) => {
+        #[derive(Debug, Clone, PartialEq)]
+        pub enum Expression {
+            $($variant($ty),)*
+        }
+
+        impl Display for Expression {
+            fn fmt(&self, f: &mut Formatter) -> FmtResult {
+                match self {
+                    $(Expression::$variant(expr) => write!(f, "{expr}"),)*
+                }
+            }
+        }
+    };
+}
+
+expr! {
     Identifier(IdentifierExpression),
     IntegerLiteral(IntegerLiteralExpression),
     Prefix(PrefixExpression),
@@ -19,24 +35,8 @@ pub enum Expression {
     FnLiteral(FnLiteralExpression),
     Call(CallExpression),
     String(StringExpression),
-}
-
-impl Display for Expression {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        let mut w = |x: &dyn Display| write!(f, "{x}");
-
-        match self {
-            Expression::Identifier(expr) => w(expr),
-            Expression::IntegerLiteral(expr) => w(expr),
-            Expression::Prefix(expr) => w(expr),
-            Expression::Infix(expr) => w(expr),
-            Expression::Boolean(expr) => w(expr),
-            Expression::If(expr) => w(expr),
-            Expression::FnLiteral(expr) => w(expr),
-            Expression::Call(expr) => w(expr),
-            Expression::String(expr) => w(expr),
-        }
-    }
+    Array(ArrayExpression),
+    Index(IndexExpression),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -102,7 +102,7 @@ pub struct InfixExpression {
     pub right: Rc<Expression>,
 }
 
-impl<'a> Node for InfixExpression {
+impl Node for InfixExpression {
     fn token_literal(&self) -> Rc<str> {
         self.token.literal.clone()
     }
@@ -254,5 +254,50 @@ impl Node for StringExpression {
 impl Display for StringExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.token_literal())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArrayExpression {
+    pub token: Rc<Token>,
+    pub elements: Vec<Expression>,
+}
+
+impl Node for ArrayExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for ArrayExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(
+            f,
+            "[{}]",
+            self.elements
+                .iter()
+                .map(|el| el.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IndexExpression {
+    pub token: Rc<Token>,
+    pub left: Rc<Expression>,
+    pub index: Rc<Expression>,
+}
+
+impl Node for IndexExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for IndexExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "({}[{}])", self.left, self.index,)
     }
 }

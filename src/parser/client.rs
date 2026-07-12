@@ -2,10 +2,10 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
-        self, BlockStatement, BooleanExpression, CallExpression, Expression, ExpressionStatement,
-        FnLiteralExpression, IdentifierExpression, IfExpression, InfixExpression,
-        IntegerLiteralExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
-        Statement, StringExpression,
+        self, ArrayExpression, BlockStatement, BooleanExpression, CallExpression, Expression,
+        ExpressionStatement, FnLiteralExpression, IdentifierExpression, IfExpression,
+        IndexExpression, InfixExpression, IntegerLiteralExpression, LetStatement, PrefixExpression,
+        Program, ReturnStatement, Statement, StringExpression,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -45,6 +45,7 @@ impl Parser {
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
         parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
         parser.register_prefix(TokenType::String, Parser::parse_string_literal);
+        parser.register_prefix(TokenType::LBracket, Parser::parse_array_literal);
 
         let infix_func = Parser::parse_infix_expression;
         parser.register_infix(TokenType::Plus, infix_func);
@@ -57,6 +58,7 @@ impl Parser {
         parser.register_infix(TokenType::Gt, infix_func);
 
         parser.register_infix(TokenType::LParen, Parser::parse_call_expression);
+        parser.register_infix(TokenType::LBracket, Parser::parse_index_expression);
 
         parser.next_token();
         parser.next_token();
@@ -76,6 +78,13 @@ impl Parser {
             token: self.cur_token.clone(),
             value: self.cur_token.literal.clone(),
         }))
+    }
+
+    fn parse_array_literal(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        let elements = self.parse_expression_list(TokenType::RBracket)?;
+
+        Some(Expression::Array(ArrayExpression { token, elements }))
     }
 
     fn parse_integer_literal(&mut self) -> Option<Expression> {
@@ -208,13 +217,28 @@ impl Parser {
     fn parse_call_expression(&mut self, expr: Expression) -> Option<Expression> {
         let token = self.cur_token.clone();
         let function = expr.into();
-        let args = self.parse_call_arguments();
+        let args = self.parse_expression_list(TokenType::RParen)?;
 
         Some(Expression::Call(CallExpression {
             function,
             token,
             args,
         }))
+    }
+
+    fn parse_index_expression(&mut self, expr: Expression) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        let left = expr.into();
+
+        self.next_token();
+
+        let index = self.parse_expression(Precedence::Lowest)?.into();
+
+        if !self.expect_peek(TokenType::RBracket) {
+            return None;
+        }
+
+        Some(Expression::Index(IndexExpression { token, left, index }))
     }
 
     fn next_token(&mut self) {
@@ -286,6 +310,30 @@ impl Parser {
         }
 
         idents
+    }
+
+    fn parse_expression_list(&mut self, end: TokenType) -> Option<Vec<Expression>> {
+        let mut list = vec![];
+
+        if self.peek_token_is(end) {
+            self.next_token();
+            return Some(list);
+        }
+
+        self.next_token();
+        list.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.peek_token_is(TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            list.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        if !self.expect_peek(end) {
+            return None;
+        }
+
+        Some(list)
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
@@ -956,6 +1004,14 @@ mod tests {
                 input: "add(a + b + c * d / f + g)",
                 expected: "add((((a + b) + ((c * d) / f)) + g))",
             },
+            Test {
+                input: "a * [1, 2, 3, 4][b * c] * d",
+                expected: "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+            },
+            Test {
+                input: "add(a * b[2], b[1], 2 * [1, 2][1])",
+                expected: "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))",
+            },
         ];
 
         for test in tests.iter() {
@@ -1172,5 +1228,51 @@ mod tests {
         if expr.value.as_ref() != "hello world" {
             panic!("expected \"hello world\", receieved {}", expr.value)
         }
+    }
+
+    #[test]
+    fn test_parsing_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]";
+
+        let prog = parse_program_with_len(input, 1);
+
+        let stmt = prog.statements.get(0).unwrap().clone();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected statement expr, received {stmt:?}")
+        };
+
+        let Expression::Array(expr) = stmt.expr else {
+            panic!("expected array expr, received {:?}", stmt.expr)
+        };
+
+        if expr.elements.len() != 3 {
+            panic!(
+                "expected 3 elements in array expr, receieved {}",
+                expr.elements.len()
+            )
+        }
+
+        test_integer_literal(expr.elements.first().unwrap(), 1);
+        test_infix_expr(expr.elements.get(1).unwrap(), 2, "*", 2);
+        test_infix_expr(expr.elements.get(2).unwrap(), 3, "+", 3);
+    }
+
+    #[test]
+    fn test_parsing_index_expressions() {
+        let input = "myArray[1 + 1]";
+
+        let prog = parse_program_or_panic(input);
+
+        let stmt = prog.statements.first().unwrap().clone();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected statement expr, received {stmt:?}")
+        };
+
+        let Expression::Index(expr) = stmt.expr else {
+            panic!("expected index expr, received {:?}", stmt.expr)
+        };
+
+        test_identifier(&expr.left, "myArray");
+        test_infix_expr(&expr.index, 1, "+", 1);
     }
 }

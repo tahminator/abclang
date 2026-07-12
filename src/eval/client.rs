@@ -4,8 +4,8 @@ use crate::{
     ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
     eval::builtins::BUILTINS,
     object::{
-        ErrorObject, FunctionObject, IntegerObject, NullObject, Object, ObjectType, Objecter,
-        ReturnValueObject, StringObject,
+        ArrayObject, ErrorObject, FunctionObject, IntegerObject, NullObject, Object, ObjectType,
+        Objecter, ReturnValueObject, StringObject,
         environment::{Env, Environment},
     },
 };
@@ -109,6 +109,11 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
             let r = eval_expression(&expr.right, env)?;
 
             eval_prefix_expression(expr.op.as_ref(), r)
+        }
+        Expression::Array(expr) => {
+            let elements = eval_expressions(&expr.elements, env)?;
+
+            Ok(Object::Array(ArrayObject { elements }))
         }
         Expression::Identifier(expr) => eval_identifier(expr, env),
         Expression::Infix(expr) => {
@@ -948,5 +953,24 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let input = "[1, 2 * 2, 3 + 3]";
+
+        let output = testutils::test_eval(input).unwrap();
+
+        let Object::Array(output) = output else {
+            panic!("expected array object, recieved {output:?}")
+        };
+
+        if output.elements.len() != 3 {
+            panic!("expected 3 elems, receieved {}", output.elements.len())
+        }
+
+        test_integer_obj(output.elements.first().unwrap().clone(), 1);
+        test_integer_obj(output.elements.get(1).unwrap().clone(), 4);
+        test_integer_obj(output.elements.get(2).unwrap().clone(), 6);
     }
 }

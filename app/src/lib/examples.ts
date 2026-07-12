@@ -38,6 +38,33 @@ max(21, 7);
 `,
   },
   {
+    name: "arrays",
+    code: `// abclang supports arrays. they do not have to be homogoneous (same elements).
+let getOne = fn() { 1 };
+let max = fn(a, b) {
+  if (a > b) {
+    return a;
+  } else {
+    return b;
+  }
+};
+
+
+let abc = [
+  1,
+  2 * 2,
+  3 + 3,
+  getOne(),
+  max(3, 92),
+  "jonny",
+  "jonny appleseeds the name",
+  len("hello world")
+];
+
+abc
+`,
+  },
+  {
     name: "builtins",
     code: `// abclang has some default builtins you may use
 

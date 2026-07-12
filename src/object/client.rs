@@ -10,6 +10,17 @@ use crate::{
     object::environment::Env,
 };
 
+pub trait Objecter {
+    fn typ(&self) -> ObjectType;
+    fn inspect_value(&self) -> String;
+}
+
+impl Object {
+    pub const NULL: Object = Object::Null(NullObject {});
+    pub const TRUE: Object = Object::Boolean(BooleanObject { value: true });
+    pub const FALSE: Object = Object::Boolean(BooleanObject { value: false });
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
 pub enum ObjectType {
     Integer,
@@ -20,6 +31,7 @@ pub enum ObjectType {
     Function,
     String,
     BuiltIn,
+    Array,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,17 +43,7 @@ pub enum Object {
     Function(FunctionObject),
     String(StringObject),
     BuiltIn(BuiltInFunctionObject),
-}
-
-impl Object {
-    pub const NULL: Object = Object::Null(NullObject {});
-    pub const TRUE: Object = Object::Boolean(BooleanObject { value: true });
-    pub const FALSE: Object = Object::Boolean(BooleanObject { value: false });
-}
-
-pub trait Objecter {
-    fn typ(&self) -> ObjectType;
-    fn inspect_value(&self) -> String;
+    Array(ArrayObject),
 }
 
 impl Objecter for Object {
@@ -54,6 +56,7 @@ impl Objecter for Object {
             Object::Function(o) => o.typ(),
             Object::String(o) => o.typ(),
             Object::BuiltIn(o) => o.typ(),
+            Object::Array(o) => o.typ(),
         }
     }
 
@@ -66,6 +69,7 @@ impl Objecter for Object {
             Object::Function(o) => o.inspect_value(),
             Object::String(o) => o.inspect_value(),
             Object::BuiltIn(o) => o.inspect_value(),
+            Object::Array(o) => o.inspect_value(),
         }
     }
 }
@@ -216,5 +220,27 @@ impl Objecter for BuiltInFunctionObject {
 
     fn inspect_value(&self) -> String {
         "builtin function".into()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArrayObject {
+    pub elements: Vec<Object>,
+}
+
+impl Objecter for ArrayObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Array
+    }
+
+    fn inspect_value(&self) -> String {
+        format!(
+            "[{}]",
+            self.elements
+                .iter()
+                .map(|el| el.inspect_value())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
