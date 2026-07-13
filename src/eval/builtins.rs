@@ -1,6 +1,6 @@
 use phf::phf_map;
 
-use crate::object::{BuiltInFunctionObject, ErrorObject, IntegerObject, Object, Objecter};
+use crate::eval::object::{BuiltInFunctionObject, ErrorObject, IntegerObject, Object, Objecter};
 
 pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
     "len" => BuiltInFunctionObject {

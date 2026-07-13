@@ -1,10 +1,12 @@
 use crate::{
     ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
-    eval::builtins::BUILTINS,
-    object::{
-        ArrayObject, ErrorObject, FunctionObject, IntegerObject, NullObject, Object, ObjectType,
-        Objecter, ReturnValueObject, StringObject,
-        environment::{Env, Environment},
+    eval::{
+        builtins::BUILTINS,
+        object::{
+            ArrayObject, ErrorObject, FunctionObject, IntegerObject, NullObject, Object,
+            ObjectType, Objecter, ReturnValueObject, StringObject,
+            environment::{Env, Environment},
+        },
     },
 };
 
@@ -341,9 +343,11 @@ mod tests {
 
     mod testutils {
         use crate::{
-            eval::evaluate,
+            eval::{
+                evaluate,
+                object::{ErrorObject, Object, environment::Environment},
+            },
             lexer::Lexer,
-            object::{ErrorObject, Object, environment::Environment},
             parser::Parser,
         };
 

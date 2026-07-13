@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::object::Object;
+use crate::eval::object::Object;
 
 pub type Env = Rc<RefCell<Environment>>;
 
