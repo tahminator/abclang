@@ -1,0 +1,9 @@
+[package]
+name = "repl"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rustyline = { version = "18.0.1" }
+thiserror = { version = "2.0.18" }
+interpreter = { path = "../interpreter" }
