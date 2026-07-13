@@ -7,7 +7,7 @@ use strum::Display;
 
 use crate::{
     ast::{BlockStatement, IdentifierExpression},
-    object::environment::Env,
+    eval::object::environment::Env,
 };
 
 pub trait Objecter {

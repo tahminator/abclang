@@ -1,7 +1,7 @@
 use rustyline::error::ReadlineError;
 use thiserror::Error;
 
-use crate::{object::ErrorObject, parser::error::ParserError};
+use crate::{eval::object::ErrorObject, parser::error::ParserError};
 
 #[derive(Debug, Error)]
 pub enum ReplError {

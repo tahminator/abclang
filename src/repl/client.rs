@@ -1,9 +1,11 @@
 use rustyline::{Editor, Helper, history::History};
 
 use crate::{
-    eval::evaluate,
+    eval::{
+        evaluate,
+        object::{Object, Objecter, environment::Environment},
+    },
     lexer::Lexer,
-    object::{Object, Objecter, environment::Environment},
     parser::Parser,
     repl::error::ReplError,
 };
