@@ -26,29 +26,21 @@ let b = 10;
   {
     name: "conditionals",
     code: `// if / else is an expression: it evaluates to a value.
-let max = fn(a, b) {
-  if (a > b) {
-    return a;
+let classify = fn(n) {
+  if (n > 0) {
+    return "positive";
   } else {
-    return b;
+    return "non-positive";
   }
 };
 
-max(21, 7);
+classify(21);
 `,
   },
   {
     name: "arrays",
     code: `// abclang supports arrays. they do not have to be homogoneous (same elements).
 let getOne = fn() { 1 };
-let max = fn(a, b) {
-  if (a > b) {
-    return a;
-  } else {
-    return b;
-  }
-};
-
 
 let abc = [
   1,
@@ -72,7 +64,12 @@ abc
 let firstname = "johnny";
 let lastname = "appleseed";
 let fullname = firstname + " " + lastname;
-len(fullname)
+
+// max() and min() compare two integers
+let longest = max(len(firstname), len(lastname));
+let shortest = min(len(firstname), len(lastname));
+
+[len(fullname), longest, shortest]
 `,
   },
   {

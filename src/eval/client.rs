@@ -933,6 +933,22 @@ mod tests {
                 input: "len(\"one\", \"two\")",
                 expected: Expected::String("wrong number of arguments. got=2, want=1".into()),
             },
+            Test {
+                input: "min(1, 2)",
+                expected: Expected::Integer(1),
+            },
+            Test {
+                input: "max(1, 2)",
+                expected: Expected::Integer(2),
+            },
+            Test {
+                input: "min(1, 103)",
+                expected: Expected::Integer(1),
+            },
+            Test {
+                input: "max(103, 1)",
+                expected: Expected::Integer(103),
+            },
         ];
 
         for test in tests.iter() {
