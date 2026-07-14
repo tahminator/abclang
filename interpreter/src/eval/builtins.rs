@@ -41,6 +41,10 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
     "println" => BuiltInFunctionObject {
         function: println,
         function_name: "println",
+    },
+    "range" => BuiltInFunctionObject {
+        function: range,
+        function_name: "range",
     }
 };
 
@@ -205,6 +209,44 @@ fn append(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
                 .to_string(),
         }),
     }
+}
+
+fn range(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    let (start, end) = match args {
+        [Object::Integer(end)] => (0, end.value),
+        [Object::Integer(start), Object::Integer(end)] => (start.value, end.value),
+        [end] => {
+            return Err(ErrorObject {
+                msg: format!(
+                    "argument to `range` not supported, expected Integer, got {}",
+                    end.typ()
+                ),
+            });
+        }
+        [start, end] => {
+            return Err(ErrorObject {
+                msg: format!(
+                    "arguments to `range` not supported, expected Integer and Integer, got {} and {}",
+                    start.typ(),
+                    end.typ()
+                ),
+            });
+        }
+        _ => {
+            return Err(ErrorObject {
+                msg: format!(
+                    "wrong number of arguments to `range`. got={}, want=1 or 2",
+                    args.len()
+                ),
+            });
+        }
+    };
+
+    let elements = (start..end)
+        .map(|value| Object::Integer(IntegerObject { value }))
+        .collect();
+
+    Ok(Object::Array(ArrayObject { elements }))
 }
 
 fn print(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {

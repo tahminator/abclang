@@ -2,8 +2,8 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
-        self, ArrayExpression, BlockStatement, BooleanExpression, CallExpression, Expression,
-        ExpressionStatement, FnLiteralExpression, ForExpression, HashExpression,
+        self, ArrayExpression, AssignStatement, BlockStatement, BooleanExpression, CallExpression,
+        Expression, ExpressionStatement, FnLiteralExpression, ForExpression, HashExpression,
         IdentifierExpression, IfExpression, IndexExpression, InfixExpression,
         IntegerLiteralExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
         Statement, StringExpression,
@@ -340,9 +340,35 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.typ {
             TokenType::Let => self.parse_let_statement().map(Statement::Let),
+            TokenType::Ident if self.peek_token_is(TokenType::Assign) => {
+                self.parse_assign_statement().map(Statement::Assign)
+            }
             TokenType::Return => self.parse_return_statement().map(Statement::Return),
             _ => self.parse_expression_statement().map(Statement::Expression),
         }
+    }
+
+    fn parse_assign_statement(&mut self) -> Option<AssignStatement> {
+        let token = self.cur_token.clone();
+
+        let name = IdentifierExpression {
+            value: self.cur_token.literal.clone(),
+            token: self.cur_token.clone(),
+        };
+
+        if !self.expect_peek(TokenType::Assign) {
+            return None;
+        }
+
+        self.next_token();
+
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(TokenType::Semicolon) {
+            self.next_token();
+        }
+
+        Some(AssignStatement { token, name, value })
     }
 
     fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
@@ -798,6 +824,51 @@ mod tests {
 
             let val = stmt.value.clone().unwrap();
             test_literal_expr(&val, test.expected_value);
+        }
+    }
+
+    #[test]
+    fn test_assign_statements() {
+        struct Test {
+            input: &'static str,
+            expected_identifier: &'static str,
+            expected_value: Expected,
+        }
+        let tests = [
+            Test {
+                input: "x = 5;",
+                expected_identifier: "x",
+                expected_value: Expected::Int(5),
+            },
+            Test {
+                input: "y = true;",
+                expected_identifier: "y",
+                expected_value: Expected::Bool(true),
+            },
+            Test {
+                input: "foobar = y;",
+                expected_identifier: "foobar",
+                expected_value: Expected::Ident("y"),
+            },
+        ];
+
+        for test in tests.iter() {
+            let prog = parse_program_with_len(test.input, 1);
+
+            let stmt = prog.statements.first().unwrap();
+
+            let Statement::Assign(stmt) = stmt else {
+                panic!("expected assign statement, receieved {stmt:?}")
+            };
+
+            if stmt.name.value.as_ref() != test.expected_identifier {
+                panic!(
+                    "expected identifier {}, received {}",
+                    test.expected_identifier, stmt.name.value
+                )
+            }
+
+            test_literal_expr(&stmt.value, test.expected_value);
         }
     }
 
