@@ -5,6 +5,7 @@ export type ToolbarProps = {
   selected: string;
   onSelectExample: (name: string) => void;
   onRun: () => void;
+  onClear: () => void;
 };
 
 export function Toolbar({
@@ -12,6 +13,7 @@ export function Toolbar({
   selected,
   onSelectExample,
   onRun,
+  onClear,
 }: ToolbarProps) {
   return (
     <div className="toolbar">
@@ -30,9 +32,14 @@ export function Toolbar({
         ))}
       </select>
 
-      <button className="run-button" onClick={onRun}>
-        ▶ Run
-      </button>
+      <div className="buttons">
+        <button className="button run-button" onClick={onRun}>
+          ▶ Run
+        </button>
+        <button className="button clear-button" onClick={onClear}>
+          Clear
+        </button>
+      </div>
     </div>
   );
 }
