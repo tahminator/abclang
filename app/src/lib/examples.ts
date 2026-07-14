@@ -54,6 +54,9 @@ let abc = [
 ];
 
 abc
+
+// or print a specific index
+// abc[0]
 `,
   },
   {

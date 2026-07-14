@@ -115,6 +115,12 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
             Ok(Object::Array(ArrayObject { elements }))
         }
         Expression::Identifier(expr) => eval_identifier(expr, env),
+        Expression::Index(expr) => {
+            let left = eval_expression(&expr.left, env)?;
+            let index = eval_expression(&expr.index, env)?;
+
+            eval_index_expression(&left, &index)
+        }
         Expression::Infix(expr) => {
             let l = eval_expression(&expr.left, env)?;
             let r = eval_expression(&expr.right, env)?;
@@ -144,6 +150,25 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object, ErrorObject
             msg: format!("not a function: {func:?}"),
         }),
     }
+}
+
+fn eval_index_expression(left: &Object, index: &Object) -> Result<Object, ErrorObject> {
+    match (left, index) {
+        (Object::Array(left), Object::Integer(index)) => {
+            Ok(eval_array_index_expression(left, index))
+        }
+        _ => Err(ErrorObject {
+            msg: format!("index operator not supported: {}", left.typ()),
+        }),
+    }
+}
+
+fn eval_array_index_expression(array_obj: &ArrayObject, index_obj: &IntegerObject) -> Object {
+    array_obj
+        .elements
+        .get(index_obj.value as usize)
+        .map(|o| o.clone())
+        .unwrap_or_else(|| Object::NULL)
 }
 
 fn extend_function_env(func: FunctionObject, args: Vec<Object>) -> Result<Env, ErrorObject> {
@@ -989,5 +1014,63 @@ mod tests {
         test_integer_obj(output.elements.first().unwrap().clone(), 1);
         test_integer_obj(output.elements.get(1).unwrap().clone(), 4);
         test_integer_obj(output.elements.get(2).unwrap().clone(), 6);
+    }
+
+    #[test]
+    fn test_array_index_expressions() {
+        struct Test {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+        let tests = [
+            Test {
+                input: "[1, 2, 3][0]",
+                expected: Some(1),
+            },
+            Test {
+                input: "[1, 2, 3][1]",
+                expected: Some(2),
+            },
+            Test {
+                input: "[1, 2, 3][2]",
+                expected: Some(3),
+            },
+            Test {
+                input: "let i = 0; [1][i];",
+                expected: Some(1),
+            },
+            Test {
+                input: "[1, 2, 3][1 + 1];",
+                expected: Some(3),
+            },
+            Test {
+                input: "let myArray = [1, 2, 3]; myArray[2];",
+                expected: Some(3),
+            },
+            Test {
+                input: "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                expected: Some(6),
+            },
+            Test {
+                input: "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+                expected: Some(2),
+            },
+            Test {
+                input: "[1, 2, 3][3]",
+                expected: None,
+            },
+            Test {
+                input: "[1, 2, 3][-1]",
+                expected: None,
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input).unwrap();
+            match test.expected {
+                Some(i) => testutils::test_integer_obj(output, i),
+                None => testutils::test_null_obj(output),
+            }
+        }
     }
 }
