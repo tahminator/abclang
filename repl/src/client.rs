@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use rustyline::{Editor, Helper, history::History};
 
 use interpreter::{
@@ -41,12 +43,22 @@ impl Repl {
                 Ok(p) => {
                     if is_debug {
                         println!("{p:#?}")
-                    } else if let Some(output) = match evaluate(&p, &env) {
-                        Ok(o) if !matches!(o, Object::NULL) => Some(o.inspect_value()),
-                        Err(o) => Some(o.inspect_value()),
-                        _ => None,
-                    } {
-                        println!("{output}")
+                    } else {
+                        let result = evaluate(&p, &env);
+
+                        let out = env.borrow().take_output();
+                        if !out.is_empty() {
+                            print!("{out}");
+                            std::io::stdout().flush()?;
+                        }
+
+                        if let Some(output) = match result {
+                            Ok(o) if !matches!(o, Object::NULL) => Some(o.inspect_value()),
+                            Err(o) => Some(o.inspect_value()),
+                            _ => None,
+                        } {
+                            println!("{output}")
+                        }
                     }
                 }
                 Err(errors) => {

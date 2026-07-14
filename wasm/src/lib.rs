@@ -19,11 +19,19 @@ fn run(input: &str, env: &Env) -> String {
     };
 
     match parser.parse_program() {
-        Ok(program) => match eval::evaluate(&program, env) {
-            Ok(Object::Null(_)) => String::new(),
-            Ok(obj) => obj.inspect_value(),
-            Err(err) => err.inspect_value(),
-        },
+        Ok(program) => {
+            let result = eval::evaluate(&program, env);
+
+            let mut out = env.borrow().take_output();
+
+            match result {
+                Ok(Object::Null(_)) => {}
+                Ok(obj) => out.push_str(&obj.inspect_value()),
+                Err(err) => out.push_str(&err.inspect_value()),
+            }
+
+            out
+        }
         Err(errors) => {
             let errs = errors
                 .iter()
