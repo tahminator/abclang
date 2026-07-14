@@ -4,6 +4,7 @@ use thiserror::Error;
 use interpreter::{eval::object::ErrorObject, parser::error::ParserError};
 
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum ReplError {
     #[error("i/o error")]
     Io(#[from] std::io::Error),

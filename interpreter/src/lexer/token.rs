@@ -3,7 +3,7 @@ use std::{fmt, rc::Rc};
 use parse_display::Display;
 use phf::phf_map;
 
-#[derive(Debug, PartialEq, Clone, Display)]
+#[derive(Debug, PartialEq, Clone, Display, Eq, Hash)]
 #[display("Token({literal}, {typ})")]
 pub struct Token {
     pub literal: Rc<str>,
@@ -56,11 +56,12 @@ pub enum TokenType {
     Else,
     Return,
 
-    Comment,
     String,
 
     LBracket,
     RBracket,
+
+    Colon,
 }
 
 impl fmt::Display for TokenType {
@@ -93,10 +94,10 @@ impl fmt::Display for TokenType {
             TokenType::Return => "return",
             TokenType::Eq => "==",
             TokenType::NotEq => "!=",
-            TokenType::Comment => "//",
             TokenType::String => "String",
             TokenType::LBracket => "[",
             TokenType::RBracket => "]",
+            TokenType::Colon => ":",
         };
         f.write_str(s)
     }

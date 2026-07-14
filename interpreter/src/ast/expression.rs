@@ -1,5 +1,7 @@
 use std::{
+    collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult},
+    hash::{DefaultHasher, Hash, Hasher},
     rc::Rc,
 };
 
@@ -10,7 +12,7 @@ use crate::{
 
 macro_rules! expr {
     ($($variant:ident($ty:ty)),* $(,)?) => {
-        #[derive(Debug, Clone, PartialEq)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub enum Expression {
             $($variant($ty),)*
         }
@@ -37,9 +39,10 @@ expr! {
     String(StringExpression),
     Array(ArrayExpression),
     Index(IndexExpression),
+    Hash(HashExpression),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IdentifierExpression {
     pub token: Rc<Token>,
     pub value: Rc<str>,
@@ -57,7 +60,7 @@ impl Display for IdentifierExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IntegerLiteralExpression {
     pub token: Rc<Token>,
     pub value: i64,
@@ -75,7 +78,7 @@ impl Display for IntegerLiteralExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PrefixExpression {
     pub token: Rc<Token>,
     pub op: Rc<str>,
@@ -94,7 +97,7 @@ impl Display for PrefixExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InfixExpression {
     pub token: Rc<Token>,
     pub left: Rc<Expression>,
@@ -114,7 +117,7 @@ impl Display for InfixExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BooleanExpression {
     pub token: Rc<Token>,
     pub value: bool,
@@ -132,7 +135,7 @@ impl Display for BooleanExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IfExpression {
     pub token: Rc<Token>,
     pub cond: Rc<Expression>,
@@ -176,7 +179,7 @@ impl Display for IfExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FnLiteralExpression {
     pub token: Rc<Token>,
     pub params: Vec<IdentifierExpression>,
@@ -208,7 +211,7 @@ impl Display for FnLiteralExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CallExpression {
     pub token: Rc<Token>,
     /**
@@ -239,7 +242,7 @@ impl Display for CallExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StringExpression {
     pub token: Rc<Token>,
     pub value: Rc<str>,
@@ -257,7 +260,7 @@ impl Display for StringExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ArrayExpression {
     pub token: Rc<Token>,
     pub elements: Vec<Expression>,
@@ -283,7 +286,7 @@ impl Display for ArrayExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IndexExpression {
     pub token: Rc<Token>,
     pub left: Rc<Expression>,
@@ -299,5 +302,62 @@ impl Node for IndexExpression {
 impl Display for IndexExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "({}[{}])", self.left, self.index,)
+    }
+}
+
+#[derive(Debug, Clone, Eq)]
+pub struct HashExpression {
+    pub token: Rc<Token>,
+    pub pairs: HashMap<Expression, Expression>,
+}
+
+impl Hash for HashExpression {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.token.hash(state);
+
+        let mut acc: u64 = 0;
+        for (key, value) in &self.pairs {
+            let mut hasher = DefaultHasher::new();
+            key.hash(&mut hasher);
+            value.hash(&mut hasher);
+            acc = acc.wrapping_add(hasher.finish());
+        }
+        acc.hash(state);
+    }
+}
+
+impl PartialEq for HashExpression {
+    fn eq(&self, other: &Self) -> bool {
+        if self.token != other.token {
+            return false;
+        }
+
+        if self.pairs.len() != other.pairs.len() {
+            return false;
+        }
+
+        self.pairs
+            .iter()
+            .all(|(key, value)| other.pairs.get(key) == Some(value))
+    }
+}
+
+impl Node for HashExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for HashExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(
+            f,
+            "{{{}}}",
+            self.pairs
+                .iter()
+                .map(|(k, v)| format!("{}:{}", k, v))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }

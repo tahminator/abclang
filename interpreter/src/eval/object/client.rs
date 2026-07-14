@@ -1,5 +1,7 @@
 use std::{
+    collections::HashMap,
     fmt::{Display as FmtDisplay, Formatter, Result as FmtResult},
+    hash::{DefaultHasher, Hash, Hasher},
     rc::Rc,
 };
 
@@ -13,6 +15,17 @@ use crate::{
 pub trait Objecter {
     fn typ(&self) -> ObjectType;
     fn inspect_value(&self) -> String;
+}
+
+// TODO: optimize perf & possibly include more Objects / handle more gracefully.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HashKey {
+    pub typ: ObjectType,
+    pub value: u64,
+}
+
+pub trait ObjectHasher {
+    fn hash_key(&self) -> Option<HashKey>;
 }
 
 impl Object {
@@ -32,6 +45,7 @@ pub enum ObjectType {
     String,
     BuiltIn,
     Array,
+    Hash,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,6 +58,7 @@ pub enum Object {
     String(StringObject),
     BuiltIn(BuiltInFunctionObject),
     Array(ArrayObject),
+    Hash(HashObject),
 }
 
 impl Objecter for Object {
@@ -57,6 +72,7 @@ impl Objecter for Object {
             Object::String(o) => o.typ(),
             Object::BuiltIn(o) => o.typ(),
             Object::Array(o) => o.typ(),
+            Object::Hash(o) => o.typ(),
         }
     }
 
@@ -70,6 +86,23 @@ impl Objecter for Object {
             Object::String(o) => o.inspect_value(),
             Object::BuiltIn(o) => o.inspect_value(),
             Object::Array(o) => o.inspect_value(),
+            Object::Hash(o) => o.inspect_value(),
+        }
+    }
+}
+
+impl ObjectHasher for Object {
+    fn hash_key(&self) -> Option<HashKey> {
+        match self {
+            Object::Integer(o) => o.hash_key(),
+            Object::Boolean(o) => o.hash_key(),
+            Object::Null(o) => o.hash_key(),
+            Object::ReturnValue(o) => o.hash_key(),
+            Object::Function(o) => o.hash_key(),
+            Object::String(o) => o.hash_key(),
+            Object::BuiltIn(o) => o.hash_key(),
+            Object::Array(o) => o.hash_key(),
+            Object::Hash(o) => o.hash_key(),
         }
     }
 }
@@ -90,6 +123,15 @@ impl Objecter for IntegerObject {
     }
 }
 
+impl ObjectHasher for IntegerObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        Some(HashKey {
+            typ: self.typ(),
+            value: self.value as u64,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct BooleanObject {
     pub value: bool,
@@ -106,6 +148,15 @@ impl Objecter for BooleanObject {
     }
 }
 
+impl ObjectHasher for BooleanObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        Some(HashKey {
+            typ: self.typ(),
+            value: if self.value { 1 } else { 0 },
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct NullObject {}
 
@@ -116,6 +167,12 @@ impl Objecter for NullObject {
 
     fn inspect_value(&self) -> String {
         "null".to_string()
+    }
+}
+
+impl ObjectHasher for NullObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
     }
 }
 
@@ -131,6 +188,12 @@ impl Objecter for ReturnValueObject {
 
     fn inspect_value(&self) -> String {
         self.value.inspect_value()
+    }
+}
+
+impl ObjectHasher for ReturnValueObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
     }
 }
 
@@ -161,6 +224,12 @@ pub struct FunctionObject {
     pub params: Vec<IdentifierExpression>,
     pub body: Option<BlockStatement>,
     pub env: Env,
+}
+
+impl ObjectHasher for FunctionObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
+    }
 }
 
 impl Objecter for FunctionObject {
@@ -199,6 +268,19 @@ impl Objecter for StringObject {
     }
 }
 
+impl ObjectHasher for StringObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        let mut hasher = DefaultHasher::new();
+        self.value.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        Some(HashKey {
+            typ: self.typ(),
+            value: hash,
+        })
+    }
+}
+
 type BuiltInFunction = fn(args: &[Object]) -> Result<Object, ErrorObject>;
 
 #[derive(Debug, Clone)]
@@ -223,6 +305,12 @@ impl Objecter for BuiltInFunctionObject {
     }
 }
 
+impl ObjectHasher for BuiltInFunctionObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrayObject {
     pub elements: Vec<Object>,
@@ -242,5 +330,84 @@ impl Objecter for ArrayObject {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+impl ObjectHasher for ArrayObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HashObject {
+    pub pairs: HashMap<HashKey, (Object, Object)>,
+}
+
+impl Objecter for HashObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Hash
+    }
+
+    fn inspect_value(&self) -> String {
+        format!(
+            "{{{}}}",
+            self.pairs
+                .iter()
+                .map(|(_, (k, v))| format!("{}: {}", k.inspect_value(), v.inspect_value()))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+impl ObjectHasher for HashObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_string_hash_key() {
+        let hello1 = StringObject {
+            value: "Hello World".into(),
+        };
+        let hello2 = StringObject {
+            value: "Hello World".into(),
+        };
+        let diff1 = StringObject {
+            value: "My name is john".into(),
+        };
+        let diff2 = StringObject {
+            value: "My name is john".into(),
+        };
+
+        if hello1.hash_key() != hello2.hash_key() {
+            panic!(
+                "strings with same context have different hash keys. {} v {}",
+                hello1.hash_key().unwrap().value,
+                hello2.hash_key().unwrap().value
+            )
+        }
+
+        if diff1.hash_key() != diff2.hash_key() {
+            panic!(
+                "strings with same context have different hash keys. {} v {}",
+                diff1.hash_key().unwrap().value,
+                diff2.hash_key().unwrap().value
+            )
+        }
+
+        if hello1.hash_key() == diff1.hash_key() {
+            panic!(
+                "strings with different context have same hash keys. {} v {}",
+                hello1.hash_key().unwrap().value,
+                diff1.hash_key().unwrap().value
+            )
+        }
     }
 }
