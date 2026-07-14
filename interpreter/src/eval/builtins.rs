@@ -2,6 +2,7 @@ use phf::phf_map;
 
 use crate::eval::object::{
     ArrayObject, BuiltInFunctionObject, ErrorObject, IntegerObject, Object, Objecter,
+    environment::Env,
 };
 
 pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
@@ -36,10 +37,14 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
     "print" => BuiltInFunctionObject {
         function: print,
         function_name: "print",
+    },
+    "println" => BuiltInFunctionObject {
+        function: println,
+        function_name: "println",
     }
 };
 
-fn len(args: &[Object]) -> Result<Object, ErrorObject> {
+fn len(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::String(s)] => Ok(Object::Integer(IntegerObject {
             value: s.value.len() as i64,
@@ -62,7 +67,7 @@ fn len(args: &[Object]) -> Result<Object, ErrorObject> {
     }
 }
 
-fn max(args: &[Object]) -> Result<Object, ErrorObject> {
+fn max(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Integer(l), Object::Integer(r)] => Ok(Object::Integer(IntegerObject {
             value: std::cmp::max(l.value, r.value),
@@ -83,7 +88,7 @@ fn max(args: &[Object]) -> Result<Object, ErrorObject> {
     }
 }
 
-fn min(args: &[Object]) -> Result<Object, ErrorObject> {
+fn min(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Integer(l), Object::Integer(r)] => Ok(Object::Integer(IntegerObject {
             value: std::cmp::min(l.value, r.value),
@@ -104,7 +109,7 @@ fn min(args: &[Object]) -> Result<Object, ErrorObject> {
     }
 }
 
-fn first(args: &[Object]) -> Result<Object, ErrorObject> {
+fn first(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr)] => Ok(arr.elements.first().cloned().unwrap_or(Object::NULL)),
         [o] => Err(ErrorObject {
@@ -122,7 +127,7 @@ fn first(args: &[Object]) -> Result<Object, ErrorObject> {
     }
 }
 
-fn last(args: &[Object]) -> Result<Object, ErrorObject> {
+fn last(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr)] => Ok(arr.elements.last().cloned().unwrap_or(Object::NULL)),
         [o] => Err(ErrorObject {
@@ -140,7 +145,7 @@ fn last(args: &[Object]) -> Result<Object, ErrorObject> {
     }
 }
 
-fn rest(args: &[Object]) -> Result<Object, ErrorObject> {
+fn rest(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr)] => Ok(Object::Array(ArrayObject {
             elements: arr.elements[1..arr.elements.len()].to_vec(),
@@ -160,7 +165,7 @@ fn rest(args: &[Object]) -> Result<Object, ErrorObject> {
     }
 }
 
-fn append(args: &[Object]) -> Result<Object, ErrorObject> {
+fn append(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr), itm] => {
             let mut clone = arr.elements.to_vec();
@@ -182,10 +187,24 @@ fn append(args: &[Object]) -> Result<Object, ErrorObject> {
     }
 }
 
-fn print(args: &[Object]) -> Result<Object, ErrorObject> {
-    for arg in args.iter() {
-        println!("{}", arg.inspect_value())
-    }
+fn print(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+    let text = args
+        .iter()
+        .map(|arg| arg.inspect_value())
+        .collect::<Vec<_>>()
+        .join(" ");
+    env.borrow().write_output(&text);
+
+    Ok(Object::NULL)
+}
+
+fn println(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+    let text = args
+        .iter()
+        .map(|arg| arg.inspect_value())
+        .collect::<Vec<_>>()
+        .join(" ");
+    env.borrow().write_output(&format!("{text}\n"));
 
     Ok(Object::NULL)
 }

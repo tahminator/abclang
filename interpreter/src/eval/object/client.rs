@@ -281,7 +281,7 @@ impl ObjectHasher for StringObject {
     }
 }
 
-type BuiltInFunction = fn(args: &[Object]) -> Result<Object, ErrorObject>;
+type BuiltInFunction = fn(args: &[Object], env: &Env) -> Result<Object, ErrorObject>;
 
 #[derive(Debug, Clone)]
 pub struct BuiltInFunctionObject {

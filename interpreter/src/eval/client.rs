@@ -98,7 +98,7 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
 
             let args = eval_expressions(&expr.args, env)?;
 
-            apply_function(func, args)
+            apply_function(func, args, env)
         }
         Expression::IntegerLiteral(expr) => {
             Ok(Object::Integer(IntegerObject { value: expr.value }))
@@ -140,7 +140,7 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
     }
 }
 
-fn apply_function(func: Object, args: Vec<Object>) -> Result<Object, ErrorObject> {
+fn apply_function(func: Object, args: Vec<Object>, env: &Env) -> Result<Object, ErrorObject> {
     match func {
         Object::Function(func) => {
             let body = func.body.clone().ok_or_else(|| ErrorObject {
@@ -152,7 +152,7 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object, ErrorObject
 
             Ok(unwrap_return_value(output))
         }
-        Object::BuiltIn(func) => (func.function)(&args),
+        Object::BuiltIn(func) => (func.function)(&args, env),
         _ => Err(ErrorObject {
             msg: format!("not a function: {func:?}"),
         }),
