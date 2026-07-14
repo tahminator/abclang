@@ -1,4 +1,5 @@
 use std::{
+    cell::{BorrowError, BorrowMutError, RefCell},
     collections::HashMap,
     fmt::{Display as FmtDisplay, Formatter, Result as FmtResult},
     hash::{DefaultHasher, Hash, Hasher},
@@ -202,6 +203,26 @@ pub struct ErrorObject {
     pub msg: String,
 }
 
+impl From<BorrowError> for ErrorObject {
+    fn from(e: BorrowError) -> Self {
+        ErrorObject {
+            msg: format!(
+                "an evaluation error occured that is likely a bug that is not caused by you. Details below:\n\n{e:#?}"
+            ),
+        }
+    }
+}
+
+impl From<BorrowMutError> for ErrorObject {
+    fn from(e: BorrowMutError) -> Self {
+        ErrorObject {
+            msg: format!(
+                "an evaluation error occured that is likely a bug that is not caused by you. Details below:\n\n{e:#?}"
+            ),
+        }
+    }
+}
+
 impl Objecter for ErrorObject {
     fn typ(&self) -> ObjectType {
         ObjectType::Error
@@ -313,7 +334,15 @@ impl ObjectHasher for BuiltInFunctionObject {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrayObject {
-    pub elements: Vec<Object>,
+    pub elements: Rc<RefCell<Vec<Object>>>,
+}
+
+impl ArrayObject {
+    pub fn new(vec: Vec<Object>) -> Self {
+        ArrayObject {
+            elements: Rc::new(RefCell::new(vec)),
+        }
+    }
 }
 
 impl Objecter for ArrayObject {
@@ -325,10 +354,13 @@ impl Objecter for ArrayObject {
         format!(
             "[{}]",
             self.elements
-                .iter()
-                .map(|el| el.inspect_value())
-                .collect::<Vec<_>>()
-                .join(", ")
+                .try_borrow()
+                .map(|r| r
+                    .iter()
+                    .map(|el| el.inspect_value())
+                    .collect::<Vec<_>>()
+                    .join(", "))
+                .unwrap_or_else(|e| format!("[<array: borrow error>]\n{e:?}"))
         )
     }
 }
@@ -341,7 +373,15 @@ impl ObjectHasher for ArrayObject {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HashObject {
-    pub pairs: HashMap<HashKey, (Object, Object)>,
+    pub pairs: Rc<RefCell<HashMap<HashKey, (Object, Object)>>>,
+}
+
+impl HashObject {
+    pub fn new(pairs: HashMap<HashKey, (Object, Object)>) -> Self {
+        Self {
+            pairs: Rc::new(RefCell::new(pairs)),
+        }
+    }
 }
 
 impl Objecter for HashObject {
@@ -353,10 +393,13 @@ impl Objecter for HashObject {
         format!(
             "{{{}}}",
             self.pairs
-                .iter()
-                .map(|(_, (k, v))| format!("{}: {}", k.inspect_value(), v.inspect_value()))
-                .collect::<Vec<_>>()
-                .join(", ")
+                .try_borrow()
+                .map(|r| r
+                    .iter()
+                    .map(|(_, (k, v))| format!("{}: {}", k.inspect_value(), v.inspect_value()))
+                    .collect::<Vec<_>>()
+                    .join(", "))
+                .unwrap_or_else(|e| format!("{{<map: borrow error>}}\n {e}"))
         )
     }
 }

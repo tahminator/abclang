@@ -54,7 +54,7 @@ fn len(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
             value: s.value.len() as i64,
         })),
         [Object::Array(arr)] => Ok(Object::Integer(IntegerObject {
-            value: arr.elements.len() as i64,
+            value: arr.elements.try_borrow()?.len() as i64,
         })),
         [arg] => Err(ErrorObject {
             msg: format!(
@@ -115,7 +115,12 @@ fn min(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
 
 fn first(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
-        [Object::Array(arr)] => Ok(arr.elements.first().cloned().unwrap_or(Object::NULL)),
+        [Object::Array(arr)] => Ok(arr
+            .elements
+            .try_borrow()?
+            .first()
+            .cloned()
+            .unwrap_or(Object::NULL)),
         [o] => Err(ErrorObject {
             msg: format!(
                 "arguments to `first` not supported, expected array, got {}",
@@ -133,7 +138,12 @@ fn first(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
 
 fn last(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
-        [Object::Array(arr)] => Ok(arr.elements.last().cloned().unwrap_or(Object::NULL)),
+        [Object::Array(arr)] => Ok(arr
+            .elements
+            .try_borrow()?
+            .last()
+            .cloned()
+            .unwrap_or(Object::NULL)),
         [o] => Err(ErrorObject {
             msg: format!(
                 "arguments to `last` not supported, expected array, got {}",
@@ -151,9 +161,12 @@ fn last(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
 
 fn rest(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
-        [Object::Array(arr)] => Ok(Object::Array(ArrayObject {
-            elements: arr.elements[1..arr.elements.len()].to_vec(),
-        })),
+        [Object::Array(arr)] => {
+            let vec = arr.elements.try_borrow()?;
+            Ok(Object::Array(ArrayObject::new(
+                vec.get(1..).unwrap_or(&[]).to_vec(),
+            )))
+        }
         [o] => Err(ErrorObject {
             msg: format!(
                 "arguments to `rest` not supported, expected array, got {}",
@@ -172,19 +185,19 @@ fn rest(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
 fn append(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr), itm] => {
-            let mut clone = arr.elements.to_vec();
-            clone.push(itm.clone());
-            Ok(Object::Array(ArrayObject { elements: clone }))
+            arr.elements.try_borrow_mut()?.push(itm.clone());
+            Ok(Object::Array(arr.clone()))
         }
         [Object::Hash(hash), key, value] => {
             let hashed = key.hash_key().ok_or_else(|| ErrorObject {
                 msg: format!("{} is unusable as a hash key", key.typ()),
             })?;
 
-            let mut pairs = hash.pairs.clone();
-            pairs.insert(hashed, (key.clone(), value.clone()));
+            hash.pairs
+                .try_borrow_mut()?
+                .insert(hashed, (key.clone(), value.clone()));
 
-            Ok(Object::Hash(HashObject { pairs }))
+            Ok(Object::Hash(hash.clone()))
         }
         [Object::Array(_), ..] => Err(ErrorObject {
             msg: format!(
@@ -244,9 +257,9 @@ fn range(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
 
     let elements = (start..end)
         .map(|value| Object::Integer(IntegerObject { value }))
-        .collect();
+        .collect::<Vec<_>>();
 
-    Ok(Object::Array(ArrayObject { elements }))
+    Ok(Object::Array(ArrayObject::new(elements)))
 }
 
 fn print(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {

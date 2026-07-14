@@ -131,7 +131,7 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
         Expression::Array(expr) => {
             let elements = eval_expressions(&expr.elements, env)?;
 
-            Ok(Object::Array(ArrayObject { elements }))
+            Ok(Object::Array(ArrayObject::new(elements)))
         }
         Expression::Identifier(expr) => eval_identifier(expr, env),
         Expression::Index(expr) => {
@@ -186,14 +186,12 @@ fn eval_hash_literal(expr: &HashExpression, env: &Env) -> Result<Object, ErrorOb
         pairs.insert(hashed, (key, value));
     }
 
-    Ok(Object::Hash(HashObject { pairs }))
+    Ok(Object::Hash(HashObject::new(pairs)))
 }
 
 fn eval_index_expression(left: &Object, index: &Object) -> Result<Object, ErrorObject> {
     match (left, index) {
-        (Object::Array(left), Object::Integer(index)) => {
-            Ok(eval_array_index_expression(left, index))
-        }
+        (Object::Array(left), Object::Integer(index)) => eval_array_index_expression(left, index),
         (Object::Hash(left), index) => eval_hash_index_expression(left, index),
         _ => Err(ErrorObject {
             msg: format!("index operator not supported: {}", left.typ()),
@@ -208,18 +206,22 @@ fn eval_hash_index_expression(left: &HashObject, index: &Object) -> Result<Objec
         });
     };
 
-    Ok(match left.pairs.get(&key) {
+    Ok(match left.pairs.try_borrow()?.get(&key) {
         Some((_, v)) => v.clone(),
         None => Object::NULL,
     })
 }
 
-fn eval_array_index_expression(array_obj: &ArrayObject, index_obj: &IntegerObject) -> Object {
-    array_obj
+fn eval_array_index_expression(
+    array_obj: &ArrayObject,
+    index_obj: &IntegerObject,
+) -> Result<Object, ErrorObject> {
+    Ok(array_obj
         .elements
+        .try_borrow()?
         .get(index_obj.value as usize)
         .cloned()
-        .unwrap_or(Object::NULL)
+        .unwrap_or(Object::NULL))
 }
 
 fn extend_function_env(func: FunctionObject, args: Vec<Object>) -> Result<Env, ErrorObject> {
@@ -335,7 +337,11 @@ fn eval_for_expression(expr: &ForExpression, env: &Env) -> Result<Object, ErrorO
                 });
             }
 
-            arr.elements.iter().map(|el| vec![el.clone()]).collect()
+            arr.elements
+                .try_borrow()?
+                .iter()
+                .map(|el| vec![el.clone()])
+                .collect()
         }
         Object::Hash(hash) => {
             let with_value = match expr.idents.len() {
@@ -349,6 +355,7 @@ fn eval_for_expression(expr: &ForExpression, env: &Env) -> Result<Object, ErrorO
             };
 
             hash.pairs
+                .try_borrow()?
                 .values()
                 .map(|(key, value)| {
                     if with_value {
@@ -1195,13 +1202,16 @@ mod tests {
             panic!("expected array object, recieved {output:?}")
         };
 
-        if output.elements.len() != 3 {
-            panic!("expected 3 elems, receieved {}", output.elements.len())
+        if output.elements.borrow().len() != 3 {
+            panic!(
+                "expected 3 elems, receieved {}",
+                output.elements.borrow().len()
+            )
         }
 
-        test_integer_obj(output.elements.first().unwrap().clone(), 1);
-        test_integer_obj(output.elements.get(1).unwrap().clone(), 4);
-        test_integer_obj(output.elements.get(2).unwrap().clone(), 6);
+        test_integer_obj(output.elements.borrow().first().unwrap().clone(), 1);
+        test_integer_obj(output.elements.borrow().get(1).unwrap().clone(), 4);
+        test_integer_obj(output.elements.borrow().get(2).unwrap().clone(), 6);
     }
 
     #[test]
@@ -1332,15 +1342,15 @@ mod tests {
                         panic!("expected array object, received {output:?}")
                     };
 
-                    if arr.elements.len() != expected.len() {
+                    if arr.elements.borrow().len() != expected.len() {
                         panic!(
                             "expected {} elems, received {}",
                             expected.len(),
-                            arr.elements.len()
+                            arr.elements.borrow().len()
                         )
                     }
 
-                    for (elem, want) in arr.elements.iter().zip(expected.iter()) {
+                    for (elem, want) in arr.elements.borrow().iter().zip(expected.iter()) {
                         testutils::test_integer_obj(elem.clone(), *want);
                     }
                 }
@@ -1399,17 +1409,18 @@ mod tests {
             (Object::FALSE.hash_key().unwrap(), 6),
         ]);
 
-        if result.pairs.len() != expected.len() {
+        let pairs = result.pairs.borrow_mut();
+
+        if pairs.len() != expected.len() {
             panic!(
                 "hash has wrong num of pairs - received {}, expected {}",
-                result.pairs.len(),
+                pairs.len(),
                 expected.len()
             )
         }
 
         for (expected_key, expected_value) in expected {
-            let (_, value) = result
-                .pairs
+            let (_, value) = pairs
                 .get(&expected_key)
                 .unwrap_or_else(|| panic!("no pair for given key in pairs"));
             test_integer_obj(value.clone(), expected_value);
