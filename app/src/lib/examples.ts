@@ -88,9 +88,12 @@ println("minmax example:", [len(fullname), longest, shortest]);
 // rest(arr) -> returns arr[1..len(arr)]
 // append(arr, itm) -> returns arr = [...arr, itm]
 // append(map, key, val) -> returns map with map[key] = val set
+// range(n) -> [0, 1, ..., n - 1]
+// range(start, end) -> [start, ..., end - 1]
 
 println("append array example:", append([1, 2], 3));
 println("append map example:", append({"a": 1}, "b", 2));
+println("range example:", range(1, 5));
 
 // you can chain these together to make a map function!
 let map = fn(arr, f) {
@@ -164,18 +167,15 @@ fib(10);
   {
     name: "LeetCode - 1. Two Sum",
     code: `let twoSum = fn(nums, target) {
-  let go = fn(i, seen) {
-    if (i == len(nums)) {
-      return [];
-    }
+  let seen = {};
+  for i in range(len(nums)) {
     let need = target - nums[i];
     if (seen[need]) {
       return [seen[need], i];
     }
-    go(i + 1, append(seen, nums[i], i));
-  };
-
-  go(0, {});
+    seen = append(seen, nums[i], i);
+  }
+  return [];
 };
 
 println(twoSum([2, 7, 11, 15], 9));

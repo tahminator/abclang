@@ -46,4 +46,15 @@ impl Environment {
     pub fn set(&mut self, name: String, v: Object) {
         self.store.insert(name, v);
     }
+
+    pub fn assign(&mut self, name: &str, v: Object) -> bool {
+        if self.store.contains_key(name) {
+            self.store.insert(name.to_string(), v);
+            true
+        } else if let Some(outer) = &self.outer {
+            outer.borrow_mut().assign(name, v)
+        } else {
+            false
+        }
+    }
 }

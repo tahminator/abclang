@@ -11,6 +11,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Statement {
     Let(LetStatement),
+    Assign(AssignStatement),
     Return(ReturnStatement),
     Expression(ExpressionStatement),
     Block(BlockStatement),
@@ -22,6 +23,7 @@ impl Display for Statement {
 
         match self {
             Statement::Let(stmt) => w(stmt),
+            Statement::Assign(stmt) => w(stmt),
             Statement::Return(stmt) => w(stmt),
             Statement::Expression(stmt) => w(stmt),
             Statement::Block(stmt) => w(stmt),
@@ -33,6 +35,7 @@ impl Node for Statement {
     fn token_literal(&self) -> Rc<str> {
         match self {
             Statement::Let(stmt) => stmt.token_literal(),
+            Statement::Assign(stmt) => stmt.token_literal(),
             Statement::Return(stmt) => stmt.token_literal(),
             Statement::Expression(stmt) => stmt.token_literal(),
             Statement::Block(stmt) => stmt.token_literal(),
@@ -65,6 +68,25 @@ impl Display for LetStatement {
                 .map(|v| v.to_string())
                 .unwrap_or_else(|| "None".to_string())
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AssignStatement {
+    pub token: Rc<Token>,
+    pub name: IdentifierExpression,
+    pub value: Expression,
+}
+
+impl Node for AssignStatement {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for AssignStatement {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{} = {};", self.name.value, self.value)
     }
 }
 

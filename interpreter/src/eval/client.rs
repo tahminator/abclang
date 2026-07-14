@@ -65,6 +65,17 @@ fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
 
             Ok(Object::NULL)
         }
+        Statement::Assign(stmt) => {
+            let val = eval_expression(&stmt.value, env)?;
+
+            if env.borrow_mut().assign(&stmt.name.value, val) {
+                Ok(Object::NULL)
+            } else {
+                Err(ErrorObject {
+                    msg: format!("identifier not found: {}", stmt.name.value),
+                })
+            }
+        }
     }
 }
 
@@ -886,6 +897,10 @@ mod tests {
                 expected_message: "identifier not found: foobar",
             },
             Test {
+                input: "x = 5",
+                expected_message: "identifier not found: x",
+            },
+            Test {
                 input: "\"hello\" - \"world\"",
                 expected_message: "unknown operator: String - String",
             },
@@ -946,6 +961,41 @@ mod tests {
             Test {
                 input: "let a = 5; let b = a; let c = a + b + 5; c;",
                 expected: 15,
+            },
+        ];
+
+        for test in tests.iter() {
+            test_integer_obj(test_eval(test.input).unwrap(), test.expected);
+        }
+    }
+
+    #[test]
+    fn test_reassignment() {
+        struct Test {
+            input: &'static str,
+            expected: i64,
+        }
+
+        let tests = [
+            Test {
+                input: "let a = 5; a = 10; a",
+                expected: 10,
+            },
+            Test {
+                input: "let a = 1; let b = 2; a = b; a",
+                expected: 2,
+            },
+            Test {
+                input: "let a = 0; a = a + 1; a = a + 1; a",
+                expected: 2,
+            },
+            Test {
+                input: "let total = 0; for x in [1, 2, 3] { total = total + x; } total",
+                expected: 6,
+            },
+            Test {
+                input: "let a = 0; let f = fn() { a = 9; }; f(); a",
+                expected: 9,
             },
         ];
 
