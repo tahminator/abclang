@@ -424,6 +424,18 @@ mod tests {
             evaluate(&prog, &env)
         }
 
+        pub fn test_eval_output(input: &str) -> (Object, String) {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer).unwrap();
+            let prog = parser.parse_program().unwrap();
+            let env = Environment::new();
+
+            let obj = evaluate(&prog, &env).unwrap();
+            let output = env.borrow().take_output();
+
+            (obj, output)
+        }
+
         pub fn test_integer_obj(obj: Object, expected: i64) {
             let Object::Integer(obj) = obj else {
                 panic!("expected integer object, received {obj:?}")
@@ -1318,6 +1330,66 @@ mod tests {
                 Some(i) => testutils::test_integer_obj(output, i),
                 None => testutils::test_null_obj(output),
             }
+        }
+    }
+
+    #[test]
+    fn test_print_builtins() {
+        struct Test {
+            input: &'static str,
+            expected: &'static str,
+        }
+
+        let tests = [
+            Test {
+                input: r#"print("hello")"#,
+                expected: "hello",
+            },
+            Test {
+                input: r#"println("hello")"#,
+                expected: "hello\n",
+            },
+            Test {
+                input: r#"print("a"); print("b"); print("c")"#,
+                expected: "abc",
+            },
+            Test {
+                input: r#"println("a"); println("b")"#,
+                expected: "a\nb\n",
+            },
+            Test {
+                input: r#"print("x", 42, true)"#,
+                expected: "x 42 true",
+            },
+            Test {
+                input: r#"println("x", 42, true)"#,
+                expected: "x 42 true\n",
+            },
+            Test {
+                input: r#"print("a"); println("b"); print("c")"#,
+                expected: "ab\nc",
+            },
+            Test {
+                input: r#"let greet = fn(name) { println("hi " + name) }; greet("bob")"#,
+                expected: "hi bob\n",
+            },
+            Test {
+                input: "print()",
+                expected: "",
+            },
+        ];
+
+        for test in tests.iter() {
+            let (obj, output) = testutils::test_eval_output(test.input);
+
+            if output != test.expected {
+                panic!(
+                    "input {:?}: expected output {:?}, received {:?}",
+                    test.input, test.expected, output
+                )
+            }
+
+            testutils::test_null_obj(obj);
         }
     }
 }
