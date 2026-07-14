@@ -32,6 +32,7 @@ export function useEditor() {
   const onClear = () => {
     setCode("");
     setSelected("");
+    setResult({ output: "", hasRun: false });
   };
 
   const onRun = () => {
