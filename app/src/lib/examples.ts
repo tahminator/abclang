@@ -60,6 +60,14 @@ abc
 `,
   },
   {
+    name: "hashmaps",
+    code: `// abclang supports hashmaps. they do not have to be homogoneous (same elements). you can use integer, boolean, or string as key.
+let people = [{"name": "Alice", "age": 24}, {"name": "Anna", "age": 28}];
+
+people[1]["name"] + " & " + people[0]["name"];
+`,
+  },
+  {
     name: "builtins",
     code: `// abclang has some default builtins you may use
 

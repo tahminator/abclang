@@ -1,10 +1,15 @@
+use std::collections::HashMap;
+
 use crate::{
-    ast::{BlockStatement, Expression, IdentifierExpression, IfExpression, Program, Statement},
+    ast::{
+        BlockStatement, Expression, HashExpression, IdentifierExpression, IfExpression, Program,
+        Statement,
+    },
     eval::{
         builtins::BUILTINS,
         object::{
-            ArrayObject, ErrorObject, FunctionObject, IntegerObject, NullObject, Object,
-            ObjectType, Objecter, ReturnValueObject, StringObject,
+            ArrayObject, ErrorObject, FunctionObject, HashObject, IntegerObject, NullObject,
+            Object, ObjectHasher, ObjectType, Objecter, ReturnValueObject, StringObject,
             environment::{Env, Environment},
         },
     },
@@ -75,6 +80,7 @@ fn eval_block_statement(block: &BlockStatement, env: &Env) -> Result<Object, Err
     Ok(result)
 }
 
+#[allow(unreachable_patterns)]
 fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> {
     match expr {
         Expression::If(expr) => eval_if_expression(expr, env),
@@ -104,6 +110,7 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
                 Ok(Object::FALSE)
             }
         }
+        Expression::Hash(expr) => eval_hash_literal(expr, env),
         Expression::Prefix(expr) => {
             let r = eval_expression(&expr.right, env)?;
 
@@ -152,15 +159,47 @@ fn apply_function(func: Object, args: Vec<Object>) -> Result<Object, ErrorObject
     }
 }
 
+fn eval_hash_literal(expr: &HashExpression, env: &Env) -> Result<Object, ErrorObject> {
+    let mut pairs = HashMap::new();
+
+    for (k, v) in expr.pairs.iter() {
+        let key = eval_expression(k, env)?;
+
+        let value = eval_expression(v, env)?;
+
+        let hashed = key.hash_key().ok_or_else(|| ErrorObject {
+            msg: format!("{} is unusable as a hash key", key.typ()),
+        })?;
+
+        pairs.insert(hashed, (key, value));
+    }
+
+    Ok(Object::Hash(HashObject { pairs }))
+}
+
 fn eval_index_expression(left: &Object, index: &Object) -> Result<Object, ErrorObject> {
     match (left, index) {
         (Object::Array(left), Object::Integer(index)) => {
             Ok(eval_array_index_expression(left, index))
         }
+        (Object::Hash(left), index) => eval_hash_index_expression(left, index),
         _ => Err(ErrorObject {
             msg: format!("index operator not supported: {}", left.typ()),
         }),
     }
+}
+
+fn eval_hash_index_expression(left: &HashObject, index: &Object) -> Result<Object, ErrorObject> {
+    let Some(key) = index.hash_key() else {
+        return Err(ErrorObject {
+            msg: format!("{} is unusable as a hash key", index.typ()),
+        });
+    };
+
+    Ok(match left.pairs.get(&key) {
+        Some((_, v)) => v.clone(),
+        None => Object::NULL,
+    })
 }
 
 fn eval_array_index_expression(array_obj: &ArrayObject, index_obj: &IntegerObject) -> Object {
@@ -771,6 +810,10 @@ mod tests {
                 input: "\"hello\" - \"world\"",
                 expected_message: "unknown operator: String - String",
             },
+            Test {
+                input: r#"{"name": "Monkey"}[fn(x) { x }];"#,
+                expected_message: "Function is unusable as a hash key",
+            },
         ];
 
         for test in tests.iter() {
@@ -1160,6 +1203,120 @@ mod tests {
                         testutils::test_integer_obj(elem.clone(), *want);
                     }
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        use std::collections::HashMap;
+
+        use crate::eval::object::{HashKey, ObjectHasher};
+
+        let input = r#"let two = "two";
+{
+    "one": 10 - 9,
+    two: 1 + 1,
+    "thr" + "ee": 6 / 2,
+    4: 4,
+    true: 5,
+    false: 6
+}"#;
+
+        let output = test_eval(input).unwrap();
+        let Object::Hash(result) = output else {
+            panic!("expected hash object, received {output:?}")
+        };
+
+        let expected: HashMap<HashKey, i64> = HashMap::from([
+            (
+                StringObject {
+                    value: "one".into(),
+                }
+                .hash_key()
+                .unwrap(),
+                1,
+            ),
+            (
+                StringObject {
+                    value: "two".into(),
+                }
+                .hash_key()
+                .unwrap(),
+                2,
+            ),
+            (
+                StringObject {
+                    value: "three".into(),
+                }
+                .hash_key()
+                .unwrap(),
+                3,
+            ),
+            (IntegerObject { value: 4 }.hash_key().unwrap(), 4),
+            (Object::TRUE.hash_key().unwrap(), 5),
+            (Object::FALSE.hash_key().unwrap(), 6),
+        ]);
+
+        if result.pairs.len() != expected.len() {
+            panic!(
+                "hash has wrong num of pairs - received {}, expected {}",
+                result.pairs.len(),
+                expected.len()
+            )
+        }
+
+        for (expected_key, expected_value) in expected {
+            let (_, value) = result
+                .pairs
+                .get(&expected_key)
+                .unwrap_or_else(|| panic!("no pair for given key in pairs"));
+            test_integer_obj(value.clone(), expected_value);
+        }
+    }
+
+    #[test]
+    fn test_hash_index_exprs() {
+        struct Test {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+        let tests = [
+            Test {
+                input: r#"{"foo": 5}["foo"]"#,
+                expected: Some(5),
+            },
+            Test {
+                input: r#"{"foo": 5}["bar"]"#,
+                expected: None,
+            },
+            Test {
+                input: r#"let key = "foo"; {"foo": 5}[key]"#,
+                expected: Some(5),
+            },
+            Test {
+                input: r#"{}["foo"]"#,
+                expected: None,
+            },
+            Test {
+                input: "{5: 5}[5]",
+                expected: Some(5),
+            },
+            Test {
+                input: "{true: 5}[true]",
+                expected: Some(5),
+            },
+            Test {
+                input: "{false: 5}[false]",
+                expected: Some(5),
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input).unwrap();
+            match test.expected {
+                Some(i) => testutils::test_integer_obj(output, i),
+                None => testutils::test_null_obj(output),
             }
         }
     }
