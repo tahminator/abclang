@@ -3,10 +3,12 @@ FROM rust:1-bookworm AS wasm-interp-builder
 RUN curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
-COPY src ./src
-RUN wasm-pack build \
+COPY wasm ./wasm
+COPY interpreter ./interpreter
+COPY repl ./repl
+RUN wasm-pack build wasm \
   --target web \
-  --out-dir app/src/lib/abclang \
+  --out-dir ../app/src/lib/abclang \
   --out-name abclang \
   --release
 
