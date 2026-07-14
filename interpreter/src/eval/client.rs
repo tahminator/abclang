@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        BlockStatement, Expression, HashExpression, IdentifierExpression, IfExpression, Program,
-        Statement,
+        BlockStatement, Expression, ForExpression, HashExpression, IdentifierExpression,
+        IfExpression, Program, Statement,
     },
     eval::{
         builtins::BUILTINS,
@@ -84,6 +84,7 @@ fn eval_block_statement(block: &BlockStatement, env: &Env) -> Result<Object, Err
 fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> {
     match expr {
         Expression::If(expr) => eval_if_expression(expr, env),
+        Expression::For(expr) => eval_for_expression(expr, env),
         Expression::FnLiteral(expr) => {
             let params = expr.params.clone();
             let body = expr.body.clone();
@@ -302,6 +303,45 @@ fn eval_if_expression(expr: &IfExpression, env: &Env) -> Result<Object, ErrorObj
             eval_block_statement(stmt, env)
         }
         _ => Ok(Object::NULL),
+    }
+}
+
+fn eval_for_expression(expr: &ForExpression, env: &Env) -> Result<Object, ErrorObject> {
+    let iterable_obj = eval_expression(&expr.iterable, env)?;
+
+    let Some(body) = &expr.body else {
+        return Ok(Object::NULL);
+    };
+
+    match iterable_obj {
+        Object::Array(arr) => {
+            let [ident] = expr.idents.as_slice() else {
+                return Err(ErrorObject {
+                    msg: format!(
+                        "for loop over Array expects 1 variable, got {}",
+                        expr.idents.len()
+                    ),
+                });
+            };
+
+            for element in arr.elements.iter() {
+                let loop_env = Environment::new_enclosed(env.clone());
+                loop_env
+                    .borrow_mut()
+                    .set(ident.value.to_string(), element.clone());
+
+                let result = eval_block_statement(body, &loop_env)?;
+
+                if matches!(result.typ(), ObjectType::ReturnValue) {
+                    return Ok(result);
+                }
+            }
+
+            Ok(Object::NULL)
+        }
+        other => Err(ErrorObject {
+            msg: format!("{} is not iterable", other.typ()),
+        }),
     }
 }
 
@@ -1390,6 +1430,102 @@ mod tests {
             }
 
             testutils::test_null_obj(obj);
+        }
+    }
+
+    #[test]
+    fn test_for_loop() {
+        struct Test {
+            input: &'static str,
+            expected: &'static str,
+        }
+
+        let tests = [
+            Test {
+                input: "for x in [1, 2, 3] { print(x) }",
+                expected: "123",
+            },
+            Test {
+                input: r#"for x in ["a", "b"] { println(x) }"#,
+                expected: "a\nb\n",
+            },
+            Test {
+                input: "for x in [] { print(x) }",
+                expected: "",
+            },
+            Test {
+                input: "let nums = [10, 20]; for n in nums { print(n) }",
+                expected: "1020",
+            },
+        ];
+
+        for test in tests.iter() {
+            let (obj, output) = testutils::test_eval_output(test.input);
+
+            if output != test.expected {
+                panic!(
+                    "input {:?}: expected output {:?}, received {:?}",
+                    test.input, test.expected, output
+                )
+            }
+
+            testutils::test_null_obj(obj);
+        }
+    }
+
+    #[test]
+    fn test_for_loop_return_propagates() {
+        let input = "let f = fn() { for x in [1, 2, 3] { if (x == 2) { return x } } }; f()";
+
+        test_integer_obj(test_eval(input).unwrap(), 2);
+    }
+
+    #[test]
+    fn test_for_loop_variable_is_scoped() {
+        let input = "for x in [1, 2, 3] { x }; x";
+
+        let Err(output) = test_eval(input) else {
+            panic!("expected error object")
+        };
+
+        if output.msg != "identifier not found: x" {
+            panic!("expected scoped-out error, received {}", output.msg)
+        }
+    }
+
+    #[test]
+    fn test_for_loop_errors() {
+        struct Test {
+            input: &'static str,
+            expected_message: &'static str,
+        }
+
+        let tests = [
+            Test {
+                input: "for x in 5 { x }",
+                expected_message: "Integer is not iterable",
+            },
+            Test {
+                input: r#"for x in "abc" { x }"#,
+                expected_message: "String is not iterable",
+            },
+            Test {
+                input: "for a, b in [1, 2] { a }",
+                expected_message: "for loop over Array expects 1 variable, got 2",
+            },
+        ];
+
+        for test in tests.iter() {
+            let Err(output) = test_eval(test.input) else {
+                panic!("expected error object for input {:?}", test.input)
+            };
+
+            if output.msg != test.expected_message {
+                panic!(
+                    "input {:?}: expected {}, received {}",
+                    test.input, test.expected_message, output.msg
+                )
+            }
         }
     }
 }

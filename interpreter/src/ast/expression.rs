@@ -34,6 +34,7 @@ expr! {
     Infix(InfixExpression),
     Boolean(BooleanExpression),
     If(IfExpression),
+    For(ForExpression),
     FnLiteral(FnLiteralExpression),
     Call(CallExpression),
     String(StringExpression),
@@ -176,6 +177,39 @@ impl Display for IfExpression {
             ),
             None => write!(f, "if {} {}", self.cond, consequence,),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForExpression {
+    pub token: Rc<Token>,
+    pub idents: Vec<IdentifierExpression>,
+    pub iterable: Rc<Expression>,
+    pub body: Option<BlockStatement>,
+}
+
+impl Node for ForExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for ForExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(
+            f,
+            "for {} in {} {}",
+            self.idents
+                .iter()
+                .map(|ident| ident.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.iterable,
+            self.body
+                .as_ref()
+                .map(|b| b.to_string())
+                .unwrap_or_else(|| "None".to_string())
+        )
     }
 }
 
