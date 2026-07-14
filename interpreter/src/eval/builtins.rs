@@ -1,8 +1,8 @@
 use phf::phf_map;
 
 use crate::eval::object::{
-    ArrayObject, BuiltInFunctionObject, ErrorObject, IntegerObject, Object, Objecter,
-    environment::Env,
+    ArrayObject, BuiltInFunctionObject, ErrorObject, HashObject, IntegerObject, Object,
+    ObjectHasher, Objecter, environment::Env,
 };
 
 pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
@@ -172,17 +172,37 @@ fn append(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
             clone.push(itm.clone());
             Ok(Object::Array(ArrayObject { elements: clone }))
         }
-        [o] => Err(ErrorObject {
+        [Object::Hash(hash), key, value] => {
+            let hashed = key.hash_key().ok_or_else(|| ErrorObject {
+                msg: format!("{} is unusable as a hash key", key.typ()),
+            })?;
+
+            let mut pairs = hash.pairs.clone();
+            pairs.insert(hashed, (key.clone(), value.clone()));
+
+            Ok(Object::Hash(HashObject { pairs }))
+        }
+        [Object::Array(_), ..] => Err(ErrorObject {
             msg: format!(
-                "arguments to `rest` not supported, expected array, got {}",
+                "wrong number of arguments to `append` for Array. got={}, want=2",
+                args.len()
+            ),
+        }),
+        [Object::Hash(_), ..] => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `append` for Hash. got={}, want=3",
+                args.len()
+            ),
+        }),
+        [o, ..] => Err(ErrorObject {
+            msg: format!(
+                "argument to `append` not supported, expected Array or Hash, got {}",
                 o.typ()
             ),
         }),
-        _ => Err(ErrorObject {
-            msg: format!(
-                "wrong number of arguments to `rest`. got={}, want=1",
-                args.len()
-            ),
+        [] => Err(ErrorObject {
+            msg: "wrong number of arguments to `append`. got=0, want=2 for array or 3 for map"
+                .to_string(),
         }),
     }
 }
