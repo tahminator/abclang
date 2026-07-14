@@ -3,9 +3,10 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     ast::{
         self, ArrayExpression, BlockStatement, BooleanExpression, CallExpression, Expression,
-        ExpressionStatement, FnLiteralExpression, HashExpression, IdentifierExpression,
-        IfExpression, IndexExpression, InfixExpression, IntegerLiteralExpression, LetStatement,
-        PrefixExpression, Program, ReturnStatement, Statement, StringExpression,
+        ExpressionStatement, FnLiteralExpression, ForExpression, HashExpression,
+        IdentifierExpression, IfExpression, IndexExpression, InfixExpression,
+        IntegerLiteralExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
+        Statement, StringExpression,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -43,6 +44,7 @@ impl Parser {
         parser.register_prefix(TokenType::False, Parser::parse_boolean);
         parser.register_prefix(TokenType::LParen, Parser::parse_grouped_expression);
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
+        parser.register_prefix(TokenType::For, Parser::parse_for_expression);
         parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
         parser.register_prefix(TokenType::String, Parser::parse_string_literal);
         parser.register_prefix(TokenType::LBracket, Parser::parse_array_literal);
@@ -211,6 +213,52 @@ impl Parser {
             cond,
             consequence,
             alternative,
+        }))
+    }
+
+    fn parse_for_expression(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::Ident) {
+            return None;
+        }
+
+        let mut idents = vec![IdentifierExpression {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        }];
+
+        while self.peek_token_is(TokenType::Comma) {
+            self.next_token();
+
+            if !self.expect_peek(TokenType::Ident) {
+                return None;
+            }
+
+            idents.push(IdentifierExpression {
+                token: self.cur_token.clone(),
+                value: self.cur_token.literal.clone(),
+            });
+        }
+
+        if !self.expect_peek(TokenType::In) {
+            return None;
+        }
+
+        self.next_token();
+        let iterable = self.parse_expression(Precedence::Lowest)?.into();
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return None;
+        }
+
+        let body = self.parse_block_statement();
+
+        Some(Expression::For(ForExpression {
+            token,
+            idents,
+            iterable,
+            body,
         }))
     }
 
@@ -1108,6 +1156,81 @@ mod tests {
         };
 
         test_identifier(&expr_stmt.expr, "x");
+    }
+
+    #[test]
+    fn test_for_expression() {
+        let input = "for x in [1, 2, 3] { x }";
+        let prog = parse_program_with_len(input, 1);
+
+        let expr = single_expression(&prog);
+
+        let Expression::For(for_expr) = expr else {
+            panic!("expected for expression, received {:?}", expr)
+        };
+
+        if for_expr.idents.len() != 1 {
+            panic!(
+                "expected 1 for_expr.idents, received {}",
+                for_expr.idents.len()
+            )
+        }
+
+        test_literal_expr(
+            &Expression::Identifier(for_expr.idents.first().unwrap().clone()),
+            "x",
+        );
+
+        let Expression::Array(iterable) = for_expr.iterable.as_ref() else {
+            panic!("expected array iterable, received {:?}", for_expr.iterable)
+        };
+
+        if iterable.elements.len() != 3 {
+            panic!(
+                "expected 3 iterable.elements, received {}",
+                iterable.elements.len()
+            )
+        }
+
+        let Some(body) = &for_expr.body else {
+            panic!("expected for_expr.body")
+        };
+
+        let statement = body.statements.first().unwrap();
+
+        let Statement::Expression(expr_stmt) = statement else {
+            panic!("expected expression statement, received {:?}", statement)
+        };
+
+        test_identifier(&expr_stmt.expr, "x");
+    }
+
+    #[test]
+    fn test_for_expression_multiple_idents() {
+        let input = "for k, v in pairs { k }";
+        let prog = parse_program_with_len(input, 1);
+
+        let expr = single_expression(&prog);
+
+        let Expression::For(for_expr) = expr else {
+            panic!("expected for expression, received {:?}", expr)
+        };
+
+        if for_expr.idents.len() != 2 {
+            panic!(
+                "expected 2 for_expr.idents, received {}",
+                for_expr.idents.len()
+            )
+        }
+
+        for (i, v) in for_expr.idents.iter().enumerate() {
+            test_literal_expr(
+                &Expression::Identifier(v.clone()),
+                if i == 0 { "k" } else { "v" },
+            );
+        }
+
+        test_identifier(for_expr.iterable.as_ref(), "pairs");
     }
 
     #[test]

@@ -55,6 +55,8 @@ pub enum TokenType {
     If,
     Else,
     Return,
+    For,
+    In,
 
     String,
 
@@ -92,6 +94,8 @@ impl fmt::Display for TokenType {
             TokenType::If => "if",
             TokenType::Else => "else",
             TokenType::Return => "return",
+            TokenType::For => "for",
+            TokenType::In => "in",
             TokenType::Eq => "==",
             TokenType::NotEq => "!=",
             TokenType::String => "String",
@@ -111,6 +115,8 @@ static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "if" => TokenType::If,
     "else" => TokenType::Else,
     "return" => TokenType::Return,
+    "for" => TokenType::For,
+    "in" => TokenType::In,
 };
 
 pub fn lookup_ident(ident: &str) -> TokenType {
