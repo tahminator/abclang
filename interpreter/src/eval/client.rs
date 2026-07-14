@@ -893,6 +893,18 @@ mod tests {
                 input: r#"{"name": "Monkey"}[fn(x) { x }];"#,
                 expected_message: "Function is unusable as a hash key",
             },
+            Test {
+                input: "append([1, 2], 3, 4)",
+                expected_message: "wrong number of arguments to `append` for Array. got=3, want=2",
+            },
+            Test {
+                input: r#"append({"a": 1}, "b")"#,
+                expected_message: "wrong number of arguments to `append` for Hash. got=2, want=3",
+            },
+            Test {
+                input: "append(5, 1)",
+                expected_message: "argument to `append` not supported, expected Array or Hash, got Integer",
+            },
         ];
 
         for test in tests.iter() {
@@ -1388,6 +1400,45 @@ mod tests {
             Test {
                 input: "{false: 5}[false]",
                 expected: Some(5),
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input).unwrap();
+            match test.expected {
+                Some(i) => testutils::test_integer_obj(output, i),
+                None => testutils::test_null_obj(output),
+            }
+        }
+    }
+
+    #[test]
+    fn test_append_on_hash() {
+        struct Test {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+
+        let tests = [
+            Test {
+                input: r#"append({}, "a", 1)["a"]"#,
+                expected: Some(1),
+            },
+            Test {
+                input: r#"append({"a": 1}, "b", 2)["a"]"#,
+                expected: Some(1),
+            },
+            Test {
+                input: r#"append({"a": 1}, "b", 2)["b"]"#,
+                expected: Some(2),
+            },
+            Test {
+                input: r#"append({"a": 1}, "a", 99)["a"]"#,
+                expected: Some(99),
+            },
+            Test {
+                input: "append({}, 5, 50)[5]",
+                expected: Some(50),
             },
         ];
 
