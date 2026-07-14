@@ -916,16 +916,20 @@ mod tests {
                 expected_message: "Function is unusable as a hash key",
             },
             Test {
-                input: "append([1, 2], 3, 4)",
-                expected_message: "wrong number of arguments to `append` for Array. got=3, want=2",
+                input: "push([1, 2], 3, 4)",
+                expected_message: "wrong number of arguments to `push`. got=3, want=2",
             },
             Test {
-                input: r#"append({"a": 1}, "b")"#,
-                expected_message: "wrong number of arguments to `append` for Hash. got=2, want=3",
+                input: r#"set({"a": 1}, "b")"#,
+                expected_message: "wrong number of arguments to `set`. got=2, want=3",
             },
             Test {
-                input: "append(5, 1)",
-                expected_message: "argument to `append` not supported, expected Array or Hash, got Integer",
+                input: "push(5, 1)",
+                expected_message: "argument to `push` not supported, expected Array, got Integer",
+            },
+            Test {
+                input: "set([1, 2], 5, 9)",
+                expected_message: "index 5 out of bounds for Array of length 2, use `push` to grow",
             },
         ];
 
@@ -1323,12 +1327,20 @@ mod tests {
                 expected: Expected::IntArray(&[5]),
             },
             Test {
-                input: "append([1, 2], 3)",
+                input: "push([1, 2], 3)",
                 expected: Expected::IntArray(&[1, 2, 3]),
             },
             Test {
-                input: "append([], 1)",
+                input: "push([], 1)",
                 expected: Expected::IntArray(&[1]),
+            },
+            Test {
+                input: "set([1, 2, 3], 1, 9)",
+                expected: Expected::IntArray(&[1, 9, 3]),
+            },
+            Test {
+                input: "set([1, 2, 3], 0, 7)",
+                expected: Expected::IntArray(&[7, 2, 3]),
             },
         ];
 
@@ -1474,7 +1486,7 @@ mod tests {
     }
 
     #[test]
-    fn test_append_on_hash() {
+    fn test_set_on_hash() {
         struct Test {
             input: &'static str,
             expected: Option<i64>,
@@ -1482,23 +1494,23 @@ mod tests {
 
         let tests = [
             Test {
-                input: r#"append({}, "a", 1)["a"]"#,
+                input: r#"set({}, "a", 1)["a"]"#,
                 expected: Some(1),
             },
             Test {
-                input: r#"append({"a": 1}, "b", 2)["a"]"#,
+                input: r#"set({"a": 1}, "b", 2)["a"]"#,
                 expected: Some(1),
             },
             Test {
-                input: r#"append({"a": 1}, "b", 2)["b"]"#,
+                input: r#"set({"a": 1}, "b", 2)["b"]"#,
                 expected: Some(2),
             },
             Test {
-                input: r#"append({"a": 1}, "a", 99)["a"]"#,
+                input: r#"set({"a": 1}, "a", 99)["a"]"#,
                 expected: Some(99),
             },
             Test {
-                input: "append({}, 5, 50)[5]",
+                input: "set({}, 5, 50)[5]",
                 expected: Some(50),
             },
         ];
