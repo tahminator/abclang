@@ -63,7 +63,7 @@ abc
     name: "builtins",
     code: `// abclang has some default builtins you may use
 
-// len() can be called on any string to output total length of string
+// len() can be called on any string or array to output total length of string
 let firstname = "johnny";
 let lastname = "appleseed";
 let fullname = firstname + " " + lastname;
@@ -73,6 +73,59 @@ let longest = max(len(firstname), len(lastname));
 let shortest = min(len(firstname), len(lastname));
 
 [len(fullname), longest, shortest]
+`,
+  },
+  {
+    name: "builtins (complex)",
+    code: `// abclang supports
+// first(arr) -> arr[0]
+// last(arr) -> arr[len(arr) - 1]
+// rest(arr) -> returns arr[1..len(arr)]
+// append(arr, itm) -> returns arr = [...arr, itm]
+
+// you can chain these together to make a map function!
+let map = fn(arr, f) {
+    let iter = fn(arr, accumulated) {
+        if (len(arr) == 0) {
+            accumulated
+        } else {
+            iter(rest(arr), append(accumulated, f(first(arr))));
+        }
+    };
+    iter(arr, []);
+};
+
+let a = [1, 2, 3, 4];
+let double = fn(x) { x * 2 };
+
+map(a, double);
+`,
+  },
+  {
+    name: "builtins (complex2)",
+    code: `// abclang supports
+// first(arr) -> arr[0]
+// last(arr) -> arr[len(arr) - 1]
+// rest(arr) -> returns arr[1..len(arr)]
+// append(arr, itm) -> returns arr = [...arr, itm]
+
+// you can chain these together to make a reduce & sum function!
+let reduce = fn(arr, initial, f) {
+  let iter = fn(arr, result) {
+    if (len(arr) == 0) {
+      result
+    } else {
+      iter(rest(arr), f(result, first(arr)));
+    }
+  };
+  iter(arr, initial);
+};
+
+let sum = fn(arr) {
+  reduce(arr, 0, fn(initial, el) { initial + el });
+};
+
+sum([1, 2, 3, 4, 5]);
 `,
   },
   {
