@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { run } from "../lib/interpreter";
 import { examples } from "../lib/examples";
+import { useUrlEditorState } from "../lib/url/editor";
 
 export type RunResult = {
   output: string;
@@ -8,7 +9,7 @@ export type RunResult = {
 };
 
 export function useEditor() {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useUrlEditorState();
   const [selected, setSelected] = useState("");
   const [result, setResult] = useState<RunResult>({
     output: "",
