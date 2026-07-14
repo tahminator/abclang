@@ -8,3 +8,6 @@ build-wasm:
 
 dev:
     just build-wasm && cd app && pnpm run dev
+
+test:
+    cargo test && pnpm run --dir=app test

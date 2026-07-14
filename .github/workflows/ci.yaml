@@ -26,6 +26,13 @@ jobs:
 
       - name: Setup pipeline
         uses: ./.github/composite/setup
+        with:
+          INSTALL_JUST: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
 
       - name: Install cargo-hack from crates.io
         uses: baptiste0928/cargo-install@v3
@@ -33,7 +40,7 @@ jobs:
           crate: cargo-hack
 
       - name: Run Tests
-        run: cargo test
+        run: just test
 
   buildImage:
     name: Build Docker image and deploy to Docker Hub
