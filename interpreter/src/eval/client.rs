@@ -313,36 +313,63 @@ fn eval_for_expression(expr: &ForExpression, env: &Env) -> Result<Object, ErrorO
         return Ok(Object::NULL);
     };
 
-    match iterable_obj {
+    let rows: Vec<Vec<Object>> = match &iterable_obj {
         Object::Array(arr) => {
-            let [ident] = expr.idents.as_slice() else {
+            if expr.idents.len() != 1 {
                 return Err(ErrorObject {
                     msg: format!(
                         "for loop over Array expects 1 variable, got {}",
                         expr.idents.len()
                     ),
                 });
-            };
-
-            for element in arr.elements.iter() {
-                let loop_env = Environment::new_enclosed(env.clone());
-                loop_env
-                    .borrow_mut()
-                    .set(ident.value.to_string(), element.clone());
-
-                let result = eval_block_statement(body, &loop_env)?;
-
-                if matches!(result.typ(), ObjectType::ReturnValue) {
-                    return Ok(result);
-                }
             }
 
-            Ok(Object::NULL)
+            arr.elements.iter().map(|el| vec![el.clone()]).collect()
         }
-        other => Err(ErrorObject {
-            msg: format!("{} is not iterable", other.typ()),
-        }),
+        Object::Hash(hash) => {
+            let with_value = match expr.idents.len() {
+                1 => false,
+                2 => true,
+                n => {
+                    return Err(ErrorObject {
+                        msg: format!("for loop over Hash expects 1 or 2 variables, got {n}"),
+                    });
+                }
+            };
+
+            hash.pairs
+                .values()
+                .map(|(key, value)| {
+                    if with_value {
+                        vec![key.clone(), value.clone()]
+                    } else {
+                        vec![key.clone()]
+                    }
+                })
+                .collect()
+        }
+        other => {
+            return Err(ErrorObject {
+                msg: format!("{} is not iterable", other.typ()),
+            });
+        }
+    };
+
+    for row in rows {
+        let loop_env = Environment::new_enclosed(env.clone());
+
+        for (ident, value) in expr.idents.iter().zip(row) {
+            loop_env.borrow_mut().set(ident.value.to_string(), value);
+        }
+
+        let result = eval_block_statement(body, &loop_env)?;
+
+        if matches!(result, Object::ReturnValue(_)) {
+            return Ok(result);
+        }
     }
+
+    Ok(Object::NULL)
 }
 
 fn is_truthy(obj: &Object) -> bool {
@@ -1513,6 +1540,10 @@ mod tests {
                 input: "for a, b in [1, 2] { a }",
                 expected_message: "for loop over Array expects 1 variable, got 2",
             },
+            Test {
+                input: "for a, b, c in {1: 2} { a }",
+                expected_message: "for loop over Hash expects 1 or 2 variables, got 3",
+            },
         ];
 
         for test in tests.iter() {
@@ -1527,5 +1558,57 @@ mod tests {
                 )
             }
         }
+    }
+
+    #[test]
+    fn test_for_loop_over_hash() {
+        struct Test {
+            input: &'static str,
+            expected: &'static str,
+        }
+
+        let tests = [
+            Test {
+                input: r#"for k, v in {"a": 1} { print(k); print(v) }"#,
+                expected: "a1",
+            },
+            Test {
+                input: r#"for k in {"only": 9} { print(k) }"#,
+                expected: "only",
+            },
+            Test {
+                input: "for k, v in {} { print(k) }",
+                expected: "",
+            },
+        ];
+
+        for test in tests.iter() {
+            let (obj, output) = testutils::test_eval_output(test.input);
+
+            if output != test.expected {
+                panic!(
+                    "input {:?}: expected output {:?}, received {:?}",
+                    test.input, test.expected, output
+                )
+            }
+
+            testutils::test_null_obj(obj);
+        }
+    }
+
+    #[test]
+    fn test_for_loop_over_hash_return() {
+        let input = "
+let find = fn(m, target) {
+    for k, v in m {
+        if (k == target) {
+            return v
+        }
+    }
+};
+
+find({1: 10, 2: 20, 3: 30}, 2)";
+
+        test_integer_obj(test_eval(input).unwrap(), 20);
     }
 }
