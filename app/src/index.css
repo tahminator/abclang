@@ -40,6 +40,36 @@ body {
   padding: 8px 12px;
   background: var(--bg-raised);
   border-bottom: 1px solid var(--border);
+
+  .buttons {
+    display: flex;
+    flex-direction: col;
+    gap: 8px;
+
+    .button {
+      border: none;
+      border-radius: 6px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      justify-self: center;
+      padding: 6px 16px;
+
+      &.clear-button {
+        background: #fff;
+        color: var(--bg-sunken);
+      }
+
+      &.run-button {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      &.run-button:hover {
+        filter: brightness(1.1);
+      }
+    }
+  }
 }
 
 .select {
@@ -50,22 +80,6 @@ body {
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   font: inherit;
-}
-
-.run-button {
-  justify-self: center;
-  padding: 6px 16px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.run-button:hover {
-  filter: brightness(1.1);
 }
 
 .panels {

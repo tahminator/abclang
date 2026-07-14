@@ -4,8 +4,16 @@ import { OutputPanel } from "./OutputPanel";
 import { Toolbar } from "./Toolbar";
 
 export function Editor() {
-  const { code, selected, result, examples, onSelectExample, onChange, onRun } =
-    useEditor();
+  const {
+    code,
+    selected,
+    result,
+    examples,
+    onSelectExample,
+    onChange,
+    onRun,
+    onClear,
+  } = useEditor();
 
   return (
     <div className="editor">
@@ -14,6 +22,7 @@ export function Editor() {
         selected={selected}
         onSelectExample={onSelectExample}
         onRun={onRun}
+        onClear={onClear}
       />
       <div className="panels">
         <CodePanel code={code} onChange={onChange} onRun={onRun} />

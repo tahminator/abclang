@@ -29,9 +29,23 @@ export function useEditor() {
     setSelected("");
   };
 
+  const onClear = () => {
+    setCode("");
+    setSelected("");
+  };
+
   const onRun = () => {
     setResult({ output: run(code), hasRun: true });
   };
 
-  return { code, selected, result, examples, onSelectExample, onChange, onRun };
+  return {
+    code,
+    selected,
+    result,
+    examples,
+    onSelectExample,
+    onChange,
+    onRun,
+    onClear,
+  };
 }
