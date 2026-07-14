@@ -32,6 +32,10 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
     "append" => BuiltInFunctionObject {
         function: append,
         function_name: "append",
+    },
+    "print" => BuiltInFunctionObject {
+        function: print,
+        function_name: "print",
     }
 };
 
@@ -176,4 +180,12 @@ fn append(args: &[Object]) -> Result<Object, ErrorObject> {
             ),
         }),
     }
+}
+
+fn print(args: &[Object]) -> Result<Object, ErrorObject> {
+    for arg in args.iter() {
+        println!("{}", arg.inspect_value())
+    }
+
+    Ok(Object::NULL)
 }
