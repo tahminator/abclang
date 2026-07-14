@@ -86,13 +86,15 @@ println("minmax example:", [len(fullname), longest, shortest]);
 // first(arr) -> arr[0]
 // last(arr) -> arr[len(arr) - 1]
 // rest(arr) -> returns arr[1..len(arr)]
-// append(arr, itm) -> returns arr = [...arr, itm]
-// append(map, key, val) -> returns map with map[key] = val set
+// push(arr, itm) -> grows arr = [...arr, itm]
+// set(arr, idx, val) -> overwrites arr[idx] = val (idx must be in bounds)
+// set(map, key, val) -> inserts or updates map[key] = val
 // range(n) -> [0, 1, ..., n - 1]
 // range(start, end) -> [start, ..., end - 1]
 
-println("append array example:", append([1, 2], 3));
-println("append map example:", append({"a": 1}, "b", 2));
+println("push array example:", push([1, 2], 3));
+println("set array example:", set([1, 2, 3], 1, 9));
+println("set map example:", set({"a": 1}, "b", 2));
 println("range example:", range(1, 5));
 
 // you can chain these together to make a map function!
@@ -101,7 +103,7 @@ let map = fn(arr, f) {
         if (len(arr) == 0) {
             accumulated
         } else {
-            iter(rest(arr), append(accumulated, f(first(arr))));
+            iter(rest(arr), push(accumulated, f(first(arr))));
         }
     };
     iter(arr, []);
@@ -173,7 +175,7 @@ fib(10);
     if (seen[need]) {
       return [seen[need], i];
     }
-    seen = append(seen, nums[i], i);
+    seen = set(seen, nums[i], i);
   }
   return [];
 };

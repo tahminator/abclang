@@ -1,8 +1,8 @@
 use phf::phf_map;
 
 use crate::eval::object::{
-    ArrayObject, BuiltInFunctionObject, ErrorObject, HashObject, IntegerObject, Object,
-    ObjectHasher, Objecter, environment::Env,
+    ArrayObject, BuiltInFunctionObject, ErrorObject, IntegerObject, Object, ObjectHasher, Objecter,
+    environment::Env,
 };
 
 pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
@@ -30,9 +30,13 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
         function: rest,
         function_name: "rest",
     },
-    "append" => BuiltInFunctionObject {
-        function: append,
-        function_name: "append",
+    "push" => BuiltInFunctionObject {
+        function: push,
+        function_name: "push",
+    },
+    "set" => BuiltInFunctionObject {
+        function: set,
+        function_name: "set",
     },
     "print" => BuiltInFunctionObject {
         function: print,
@@ -182,12 +186,57 @@ fn rest(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     }
 }
 
-fn append(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+fn push(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr), itm] => {
             arr.elements.try_borrow_mut()?.push(itm.clone());
             Ok(Object::Array(arr.clone()))
         }
+        [Object::Array(_), ..] => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `push`. got={}, want=2",
+                args.len()
+            ),
+        }),
+        [o, ..] => Err(ErrorObject {
+            msg: format!(
+                "argument to `push` not supported, expected Array, got {}",
+                o.typ()
+            ),
+        }),
+        [] => Err(ErrorObject {
+            msg: "wrong number of arguments to `push`. got=0, want=2".to_string(),
+        }),
+    }
+}
+
+fn set(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Array(arr), Object::Integer(idx), value] => {
+            let mut elements = arr.elements.try_borrow_mut()?;
+            let len = elements.len();
+
+            let i = idx.value;
+            let slot = usize::try_from(i)
+                .ok()
+                .and_then(|i| elements.get_mut(i))
+                .ok_or_else(|| ErrorObject {
+                    msg: format!(
+                        "index {i} out of bounds for Array of length {len}, use `push` to grow"
+                    ),
+                })?;
+
+            *slot = value.clone();
+
+            drop(elements);
+            Ok(Object::Array(arr.clone()))
+        }
+        [Object::Array(_), idx, _] => Err(ErrorObject {
+            msg: format!(
+                "index to `set` on Array must be an Integer, got {}",
+                idx.typ()
+            ),
+        }),
         [Object::Hash(hash), key, value] => {
             let hashed = key.hash_key().ok_or_else(|| ErrorObject {
                 msg: format!("{} is unusable as a hash key", key.typ()),
@@ -199,27 +248,20 @@ fn append(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
 
             Ok(Object::Hash(hash.clone()))
         }
-        [Object::Array(_), ..] => Err(ErrorObject {
+        [Object::Array(_), ..] | [Object::Hash(_), ..] => Err(ErrorObject {
             msg: format!(
-                "wrong number of arguments to `append` for Array. got={}, want=2",
-                args.len()
-            ),
-        }),
-        [Object::Hash(_), ..] => Err(ErrorObject {
-            msg: format!(
-                "wrong number of arguments to `append` for Hash. got={}, want=3",
+                "wrong number of arguments to `set`. got={}, want=3",
                 args.len()
             ),
         }),
         [o, ..] => Err(ErrorObject {
             msg: format!(
-                "argument to `append` not supported, expected Array or Hash, got {}",
+                "argument to `set` not supported, expected Array or Hash, got {}",
                 o.typ()
             ),
         }),
         [] => Err(ErrorObject {
-            msg: "wrong number of arguments to `append`. got=0, want=2 for array or 3 for map"
-                .to_string(),
+            msg: "wrong number of arguments to `set`. got=0, want=3".to_string(),
         }),
     }
 }
