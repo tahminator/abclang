@@ -167,8 +167,8 @@ fn eval_array_index_expression(array_obj: &ArrayObject, index_obj: &IntegerObjec
     array_obj
         .elements
         .get(index_obj.value as usize)
-        .map(|o| o.clone())
-        .unwrap_or_else(|| Object::NULL)
+        .cloned()
+        .unwrap_or(Object::NULL)
 }
 
 fn extend_function_env(func: FunctionObject, args: Vec<Object>) -> Result<Env, ErrorObject> {
@@ -956,11 +956,15 @@ mod tests {
             },
             Test {
                 input: "len(1)",
-                expected: Expected::String("argument to `len` not supported, got Integer".into()),
+                expected: Expected::String(
+                    "argument to `len` not supported, expected String or Array, got Integer".into(),
+                ),
             },
             Test {
                 input: "len(\"one\", \"two\")",
-                expected: Expected::String("wrong number of arguments. got=2, want=1".into()),
+                expected: Expected::String(
+                    "wrong number of arguments to `len`. got=2, want=1".into(),
+                ),
             },
             Test {
                 input: "min(1, 2)",
@@ -1080,5 +1084,83 @@ mod tests {
 
         let output = testutils::test_eval(input).unwrap();
         testutils::test_integer_obj(output, 4);
+    }
+
+    #[test]
+    fn test_array_builtins() {
+        enum Expected {
+            Integer(i64),
+            Null,
+            IntArray(&'static [i64]),
+        }
+
+        struct Test {
+            input: &'static str,
+            expected: Expected,
+        }
+
+        let tests = [
+            Test {
+                input: "first([1, 2, 3])",
+                expected: Expected::Integer(1),
+            },
+            Test {
+                input: "first([])",
+                expected: Expected::Null,
+            },
+            Test {
+                input: "last([1, 2, 3])",
+                expected: Expected::Integer(3),
+            },
+            Test {
+                input: "last([])",
+                expected: Expected::Null,
+            },
+            Test {
+                input: "rest([1, 2, 3])",
+                expected: Expected::IntArray(&[2, 3]),
+            },
+            Test {
+                input: "rest([1])",
+                expected: Expected::IntArray(&[]),
+            },
+            Test {
+                input: "rest(rest(rest(rest([1, 2, 3, 4, 5]))))",
+                expected: Expected::IntArray(&[5]),
+            },
+            Test {
+                input: "append([1, 2], 3)",
+                expected: Expected::IntArray(&[1, 2, 3]),
+            },
+            Test {
+                input: "append([], 1)",
+                expected: Expected::IntArray(&[1]),
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input).unwrap();
+            match test.expected {
+                Expected::Integer(expected) => testutils::test_integer_obj(output, expected),
+                Expected::Null => testutils::test_null_obj(output),
+                Expected::IntArray(expected) => {
+                    let Object::Array(arr) = output else {
+                        panic!("expected array object, received {output:?}")
+                    };
+
+                    if arr.elements.len() != expected.len() {
+                        panic!(
+                            "expected {} elems, received {}",
+                            expected.len(),
+                            arr.elements.len()
+                        )
+                    }
+
+                    for (elem, want) in arr.elements.iter().zip(expected.iter()) {
+                        testutils::test_integer_obj(elem.clone(), *want);
+                    }
+                }
+            }
+        }
     }
 }
