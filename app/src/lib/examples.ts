@@ -80,12 +80,9 @@ let fullname = firstname + " " + lastname;
 let longest = max(len(firstname), len(lastname));
 let shortest = min(len(firstname), len(lastname));
 
-[len(fullname), longest, shortest]
-`,
-  },
-  {
-    name: "builtins (complex)",
-    code: `// abclang supports
+println("minmax example:", [len(fullname), longest, shortest]);
+
+// abclang supports
 // first(arr) -> arr[0]
 // last(arr) -> arr[len(arr) - 1]
 // rest(arr) -> returns arr[1..len(arr)]
@@ -106,16 +103,7 @@ let map = fn(arr, f) {
 let a = [1, 2, 3, 4];
 let double = fn(x) { x * 2 };
 
-map(a, double);
-`,
-  },
-  {
-    name: "builtins (complex2)",
-    code: `// abclang supports
-// first(arr) -> arr[0]
-// last(arr) -> arr[len(arr) - 1]
-// rest(arr) -> returns arr[1..len(arr)]
-// append(arr, itm) -> returns arr = [...arr, itm]
+println("map example:", map(a, double));
 
 // you can chain these together to make a reduce & sum function!
 let reduce = fn(arr, initial, f) {
@@ -133,7 +121,7 @@ let sum = fn(arr) {
   reduce(arr, 0, fn(initial, el) { initial + el });
 };
 
-sum([1, 2, 3, 4, 5]);
+println("sum example:", sum([1, 2, 3, 4, 5]));
 `,
   },
   {

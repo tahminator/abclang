@@ -7,6 +7,9 @@ build-wasm:
     @echo "wasm bindings written to app/src/lib/abclang"
 
 dev:
+    cargo run
+
+wasm-dev:
     just build-wasm && cd app && pnpm run dev
 
 test:
