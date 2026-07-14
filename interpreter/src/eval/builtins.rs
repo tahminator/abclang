@@ -22,6 +22,9 @@ fn len(args: &[Object]) -> Result<Object, ErrorObject> {
         [Object::String(s)] => Ok(Object::Integer(IntegerObject {
             value: s.value.len() as i64,
         })),
+        [Object::Array(arr)] => Ok(Object::Integer(IntegerObject {
+            value: arr.elements.len() as i64,
+        })),
         [arg] => Err(ErrorObject {
             msg: format!("argument to `len` not supported, got {}", arg.typ()),
         }),

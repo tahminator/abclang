@@ -1073,4 +1073,12 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_len_builtin_on_arr() {
+        let input = "len([1, 2 * 2, 3 + 3, \"hello\"])";
+
+        let output = testutils::test_eval(input).unwrap();
+        testutils::test_integer_obj(output, 4);
+    }
 }
