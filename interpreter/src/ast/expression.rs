@@ -5,6 +5,8 @@ use std::{
     rc::Rc,
 };
 
+use ordered_float::OrderedFloat;
+
 use crate::{
     ast::{BlockStatement, Node},
     lexer::token::Token,
@@ -30,6 +32,7 @@ macro_rules! expr {
 expr! {
     Identifier(IdentifierExpression),
     IntegerLiteral(IntegerLiteralExpression),
+    FloatLiteral(FloatLiteralExpression),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     Boolean(BooleanExpression),
@@ -393,5 +396,23 @@ impl Display for HashExpression {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FloatLiteralExpression {
+    pub token: Rc<Token>,
+    pub value: OrderedFloat<f64>,
+}
+
+impl Node for FloatLiteralExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for FloatLiteralExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.value)
     }
 }

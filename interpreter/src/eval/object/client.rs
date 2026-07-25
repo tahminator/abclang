@@ -38,6 +38,7 @@ impl Object {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
 pub enum ObjectType {
     Integer,
+    Float,
     Boolean,
     Null,
     ReturnValue,
@@ -52,6 +53,7 @@ pub enum ObjectType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Integer(IntegerObject),
+    Float(FloatObject),
     Boolean(BooleanObject),
     Null(NullObject),
     ReturnValue(ReturnValueObject),
@@ -66,6 +68,7 @@ impl Objecter for Object {
     fn typ(&self) -> ObjectType {
         match self {
             Object::Integer(o) => o.typ(),
+            Object::Float(o) => o.typ(),
             Object::Boolean(o) => o.typ(),
             Object::Null(o) => o.typ(),
             Object::ReturnValue(o) => o.typ(),
@@ -80,6 +83,7 @@ impl Objecter for Object {
     fn inspect_value(&self) -> String {
         match self {
             Object::Integer(o) => o.inspect_value(),
+            Object::Float(o) => o.inspect_value(),
             Object::Boolean(o) => o.inspect_value(),
             Object::Null(o) => o.inspect_value(),
             Object::ReturnValue(o) => o.inspect_value(),
@@ -96,6 +100,7 @@ impl ObjectHasher for Object {
     fn hash_key(&self) -> Option<HashKey> {
         match self {
             Object::Integer(o) => o.hash_key(),
+            Object::Float(o) => o.hash_key(),
             Object::Boolean(o) => o.hash_key(),
             Object::Null(o) => o.hash_key(),
             Object::ReturnValue(o) => o.hash_key(),
@@ -407,6 +412,31 @@ impl Objecter for HashObject {
 impl ObjectHasher for HashObject {
     fn hash_key(&self) -> Option<HashKey> {
         None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FloatObject {
+    pub value: f64,
+}
+
+impl Objecter for FloatObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Float
+    }
+
+    fn inspect_value(&self) -> String {
+        let v = self.value;
+        format!("{v}")
+    }
+}
+
+impl ObjectHasher for FloatObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        Some(HashKey {
+            typ: self.typ(),
+            value: self.value as u64,
+        })
     }
 }
 

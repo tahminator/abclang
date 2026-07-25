@@ -24,6 +24,44 @@ let b = 10;
 `,
   },
   {
+    name: "numbers",
+    code: `// abclang has two number types: ints and floats.
+
+// integer literals
+let count = 42;
+let negative = -7;
+
+// float literals (any number with a decimal point)
+let pi = 3.14159;
+let tiny = -0.5;
+
+// printing numbers
+println("int:", count);
+println("float:", pi);
+
+// arithmetic follows the usual precedence rules
+println("int math:", (count + 8) * 2 - 10 / 5);
+println("float math:", pi * 2.0);
+
+// mixing ints and floats promotes the result to a float
+println("mixed:", 3 + 0.5);
+
+// division: int / int stays an int (truncates), float division keeps the remainder
+println("int division:", 7 / 2);
+println("float division:", 7.0 / 2.0);
+
+// numbers can live side by side in arrays
+let mixed = [1, 2.5, 3, -4.25, count, pi];
+println("array:", mixed);
+println("first + last:", mixed[0] + mixed[len(mixed) - 1]);
+
+// and as hashmap values
+let constants = {"pi": 3.14159, "e": 2.71828, "answer": 42};
+println("hashmap:", constants);
+println("e:", constants["e"]);
+`,
+  },
+  {
     name: "conditionals",
     code: `// if / else is an expression: it evaluates to a value.
 let classify = fn(n) {
@@ -164,6 +202,32 @@ let fib = fn(n) {
 };
 
 fib(10);
+`,
+  },
+  {
+    name: "iterators / range",
+    code: `// range(n) builds [0, 1, ..., n - 1]
+// range(start, end) builds [start, ..., end - 1]
+println("range(n):", range(3));
+println("range(start, end):", range(2, 6));
+
+// range pairs nicely with a for loop to iterate by index
+let nums = [10, 20, 30];
+for i in range(len(nums)) {
+  println(i, nums[i]);
+}
+
+// for loops iterate arrays directly too
+for n in nums {
+  println(n);
+}
+println("");
+
+// maps are iterable with a "key, value" for loop
+let ages = {"alice": 30, "bob": 25};
+for name, age in ages {
+  println(name, age);
+}
 `,
   },
   {

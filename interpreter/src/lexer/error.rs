@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum LexerError {
     #[error("failed to convert `{0}` to a valid string")]
     FailedToParseToStringError(#[from] Utf8Error),
+    #[error("failed to find digits after period on a float")]
+    FailedToFindDigitsAfterPeriodOnFloat,
     #[error("unknown lexer error")]
     Unknown,
 }

@@ -1,8 +1,8 @@
 use phf::phf_map;
 
 use crate::eval::object::{
-    ArrayObject, BuiltInFunctionObject, ErrorObject, IntegerObject, Object, ObjectHasher, Objecter,
-    environment::Env,
+    ArrayObject, BuiltInFunctionObject, ErrorObject, FloatObject, IntegerObject, Object,
+    ObjectHasher, Objecter, environment::Env,
 };
 
 pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
@@ -80,9 +80,18 @@ fn max(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
         [Object::Integer(l), Object::Integer(r)] => Ok(Object::Integer(IntegerObject {
             value: std::cmp::max(l.value, r.value),
         })),
+        [Object::Float(l), Object::Float(r)] => Ok(Object::Float(FloatObject {
+            value: l.value.max(r.value),
+        })),
+        [Object::Integer(l), Object::Float(r)] => Ok(Object::Float(FloatObject {
+            value: r.value.max(l.value as f64),
+        })),
+        [Object::Float(l), Object::Integer(r)] => Ok(Object::Float(FloatObject {
+            value: l.value.max(r.value as f64),
+        })),
         [l, r] => Err(ErrorObject {
             msg: format!(
-                "arguments to `max` not supported, expected Integer and Integer, got {} and {}",
+                "arguments to `max` not supported, expected (Integer || Float) and (Integer || Float), got {} and {}",
                 l.typ(),
                 r.typ()
             ),
@@ -101,9 +110,18 @@ fn min(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
         [Object::Integer(l), Object::Integer(r)] => Ok(Object::Integer(IntegerObject {
             value: std::cmp::min(l.value, r.value),
         })),
+        [Object::Float(l), Object::Float(r)] => Ok(Object::Float(FloatObject {
+            value: l.value.min(r.value),
+        })),
+        [Object::Integer(l), Object::Float(r)] => Ok(Object::Float(FloatObject {
+            value: r.value.min(l.value as f64),
+        })),
+        [Object::Float(l), Object::Integer(r)] => Ok(Object::Float(FloatObject {
+            value: l.value.min(r.value as f64),
+        })),
         [l, r] => Err(ErrorObject {
             msg: format!(
-                "arguments to `min` not supported, expected Integer and Integer, got {} and {}",
+                "arguments to `min` not supported, expected (Integer || Float) and (Integer || Float), got {} and {}",
                 l.typ(),
                 r.typ()
             ),

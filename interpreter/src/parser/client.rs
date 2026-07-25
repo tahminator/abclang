@@ -3,10 +3,10 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     ast::{
         self, ArrayExpression, AssignStatement, BlockStatement, BooleanExpression, CallExpression,
-        Expression, ExpressionStatement, FnLiteralExpression, ForExpression, HashExpression,
-        IdentifierExpression, IfExpression, IndexExpression, InfixExpression,
-        IntegerLiteralExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
-        Statement, StringExpression,
+        Expression, ExpressionStatement, FloatLiteralExpression, FnLiteralExpression,
+        ForExpression, HashExpression, IdentifierExpression, IfExpression, IndexExpression,
+        InfixExpression, IntegerLiteralExpression, LetStatement, PrefixExpression, Program,
+        ReturnStatement, Statement, StringExpression,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -38,6 +38,7 @@ impl Parser {
 
         parser.register_prefix(TokenType::Ident, Parser::parse_identifier);
         parser.register_prefix(TokenType::Int, Parser::parse_integer_literal);
+        parser.register_prefix(TokenType::Float, Parser::parse_float_literal);
         parser.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::True, Parser::parse_boolean);
@@ -132,6 +133,23 @@ impl Parser {
         Some(Expression::IntegerLiteral(IntegerLiteralExpression {
             token,
             value,
+        }))
+    }
+
+    fn parse_float_literal(&mut self) -> Option<Expression> {
+        let token = self.cur_token.clone();
+
+        let value = match self.cur_token.literal.parse::<f64>() {
+            Ok(v) => Some(v),
+            Err(e) => {
+                self.errors.push(e.into());
+                None
+            }
+        }?;
+
+        Some(Expression::FloatLiteral(FloatLiteralExpression {
+            token,
+            value: value.into(),
         }))
     }
 
