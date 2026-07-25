@@ -91,10 +91,12 @@ let abc = [
   len("hello world")
 ];
 
-abc
+// use push() to insert an element into array
+abc = push(abc, 3)
+println(abc)
 
 // or print a specific index
-// abc[0]
+println(abc[0])
 `,
   },
   {

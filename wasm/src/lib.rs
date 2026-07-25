@@ -1,3 +1,5 @@
+mod tokenizer;
+
 use wasm_bindgen::prelude::*;
 
 use interpreter::{
@@ -9,6 +11,14 @@ use interpreter::{
     lexer::Lexer,
     parser::Parser,
 };
+
+pub use tokenizer::Category;
+
+/// Vec<u32> should be read in triplicates (start, end, cat)
+#[wasm_bindgen]
+pub fn tokenize(input: &str) -> Vec<u32> {
+    tokenizer::tokenize(input)
+}
 
 fn run(input: &str, env: &Env) -> String {
     let lexer = Lexer::new(input);
