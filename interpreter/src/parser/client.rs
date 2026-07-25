@@ -63,6 +63,7 @@ impl Parser {
 
         parser.register_infix(TokenType::LParen, Parser::parse_call_expression);
         parser.register_infix(TokenType::LBracket, Parser::parse_index_expression);
+        parser.register_infix(TokenType::Dot, Parser::parse_dot_expression);
 
         parser.next_token();
         parser.next_token();
@@ -332,6 +333,26 @@ impl Parser {
         if !self.expect_peek(TokenType::RBracket) {
             return None;
         }
+
+        Some(Expression::Index(IndexExpression { token, left, index }))
+    }
+
+    /// Desugars `left.field` into `left["field"]`, reusing the existing
+    /// hash-index evaluation path rather than introducing a new AST node.
+    fn parse_dot_expression(&mut self, expr: Expression) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        let left = expr.into();
+
+        if !self.expect_peek(TokenType::Ident) {
+            return None;
+        }
+
+        let field = self.cur_token.clone();
+        let index = Expression::String(StringExpression {
+            token: field.clone(),
+            value: field.literal.clone(),
+        })
+        .into();
 
         Some(Expression::Index(IndexExpression { token, left, index }))
     }
@@ -1609,5 +1630,103 @@ mod tests {
                 .unwrap_or_else(|| panic!("no test found for key {}", key.value));
             test_infix_expr(value, *left, op, *right);
         }
+    }
+
+    #[test]
+    fn test_parsing_dot_expressions() {
+        let input = "myObj.name";
+
+        let prog = parse_program_or_panic(input);
+
+        let stmt = prog.statements.first().unwrap().clone();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected statement expr, received {stmt:?}")
+        };
+
+        let Expression::Index(expr) = stmt.expr else {
+            panic!("expected index expr, received {:?}", stmt.expr)
+        };
+
+        test_identifier(&expr.left, "myObj");
+
+        let Expression::String(index) = expr.index.as_ref() else {
+            panic!("expected string index, received {:?}", expr.index)
+        };
+        assert_eq!(index.value.as_ref(), "name");
+    }
+
+    #[test]
+    fn test_parsing_chained_dot_expressions() {
+        let input = "myObj.foo.bar";
+
+        let prog = parse_program_or_panic(input);
+
+        let stmt = prog.statements.first().unwrap().clone();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected statement expr, received {stmt:?}")
+        };
+
+        // ((myObj.foo).bar) -> outer index is "bar", left is the "foo" index expr
+        let Expression::Index(outer) = stmt.expr else {
+            panic!("expected index expr, received {:?}", stmt.expr)
+        };
+
+        let Expression::String(outer_index) = outer.index.as_ref() else {
+            panic!("expected string index, received {:?}", outer.index)
+        };
+        assert_eq!(outer_index.value.as_ref(), "bar");
+
+        let Expression::Index(inner) = outer.left.as_ref() else {
+            panic!("expected inner index expr, received {:?}", outer.left)
+        };
+
+        test_identifier(&inner.left, "myObj");
+        let Expression::String(inner_index) = inner.index.as_ref() else {
+            panic!("expected string index, received {:?}", inner.index)
+        };
+        assert_eq!(inner_index.value.as_ref(), "foo");
+    }
+
+    #[test]
+    fn test_parsing_dot_expression_call() {
+        let input = "myObj.greet(1, 2)";
+
+        let prog = parse_program_or_panic(input);
+
+        let stmt = prog.statements.first().unwrap().clone();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected statement expr, received {stmt:?}")
+        };
+
+        let Expression::Call(call) = stmt.expr else {
+            panic!("expected call expr, received {:?}", stmt.expr)
+        };
+
+        let Expression::Index(index) = call.function.as_ref() else {
+            panic!(
+                "expected index expr as call target, received {:?}",
+                call.function
+            )
+        };
+
+        test_identifier(&index.left, "myObj");
+        let Expression::String(field) = index.index.as_ref() else {
+            panic!("expected string index, received {:?}", index.index)
+        };
+        assert_eq!(field.value.as_ref(), "greet");
+        assert_eq!(call.args.len(), 2);
+    }
+
+    #[test]
+    fn test_parsing_dot_expression_requires_identifier() {
+        let input = "myObj.1";
+
+        let mut parser = Parser::new(Lexer::new(input)).expect("failed to construct parser");
+        let result = parser.parse_program();
+
+        assert!(
+            result.is_err(),
+            "expected a parser error for `myObj.1`, received {result:?}"
+        );
     }
 }

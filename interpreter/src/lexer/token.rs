@@ -65,6 +65,7 @@ pub enum TokenType {
     RBracket,
 
     Colon,
+    Dot,
 }
 
 impl fmt::Display for TokenType {
@@ -104,6 +105,7 @@ impl fmt::Display for TokenType {
             TokenType::LBracket => "[",
             TokenType::RBracket => "]",
             TokenType::Colon => ":",
+            TokenType::Dot => ".",
         };
         f.write_str(s)
     }

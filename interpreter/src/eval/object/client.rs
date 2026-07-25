@@ -432,11 +432,12 @@ impl Objecter for FloatObject {
 }
 
 impl ObjectHasher for FloatObject {
+    /// Floats are intentionally not hashable: dot syntax (`obj.field`) reads
+    /// as string-keyed hash access, so allowing floats as hash keys would
+    /// make `hash.1` ambiguous between "field named 1" and "key 1.<next
+    /// field>". Rejecting float keys keeps that reading unambiguous.
     fn hash_key(&self) -> Option<HashKey> {
-        Some(HashKey {
-            typ: self.typ(),
-            value: self.value as u64,
-        })
+        None
     }
 }
 

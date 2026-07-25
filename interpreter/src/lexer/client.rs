@@ -158,6 +158,10 @@ impl Lexer {
                 literal: ":".into(),
                 typ: TokenType::Colon,
             },
+            b'.' => Token {
+                literal: ".".into(),
+                typ: TokenType::Dot,
+            },
             0 => Token {
                 literal: "".into(),
                 typ: TokenType::Eof,
@@ -3768,6 +3772,78 @@ let ten = 10.2;
             Token {
                 typ: TokenType::Semicolon,
                 literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Eof,
+                literal: "".into(),
+            },
+        ];
+
+        for output in outputs {
+            match lexer.next_token() {
+                Ok(token) => {
+                    assert_eq!(token, output);
+                }
+                Err(e) => panic!("{}", e),
+            }
+        }
+    }
+
+    #[test]
+    fn test_dot_token_for_field_access() {
+        let input = "myObj.name";
+
+        let mut lexer = Lexer::new(input);
+
+        let outputs = [
+            Token {
+                typ: TokenType::Ident,
+                literal: "myObj".into(),
+            },
+            Token {
+                typ: TokenType::Dot,
+                literal: ".".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "name".into(),
+            },
+            Token {
+                typ: TokenType::Eof,
+                literal: "".into(),
+            },
+        ];
+
+        for output in outputs {
+            match lexer.next_token() {
+                Ok(token) => {
+                    assert_eq!(token, output);
+                }
+                Err(e) => panic!("{}", e),
+            }
+        }
+    }
+
+    #[test]
+    fn test_dot_token_does_not_swallow_float() {
+        // "3.14" must stay a single Float token, and the dot access right
+        // after it must still tokenize as its own Dot token.
+        let input = "3.14.round";
+
+        let mut lexer = Lexer::new(input);
+
+        let outputs = [
+            Token {
+                typ: TokenType::Float,
+                literal: "3.14".into(),
+            },
+            Token {
+                typ: TokenType::Dot,
+                literal: ".".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "round".into(),
             },
             Token {
                 typ: TokenType::Eof,

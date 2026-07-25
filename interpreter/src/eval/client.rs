@@ -995,6 +995,14 @@ mod tests {
                 expected_message: "Function is unusable as a hash key",
             },
             Test {
+                input: "{1.5: \"pi\"}",
+                expected_message: "Float is unusable as a hash key",
+            },
+            Test {
+                input: r#"{"a": 1}[1.5]"#,
+                expected_message: "Float is unusable as a hash key",
+            },
+            Test {
                 input: "push([1, 2], 3, 4)",
                 expected_message: "wrong number of arguments to `push`. got=3, want=2",
             },
@@ -1552,6 +1560,41 @@ mod tests {
             Test {
                 input: "{false: 5}[false]",
                 expected: Some(5),
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input).unwrap();
+            match test.expected {
+                Some(i) => testutils::test_integer_obj(output, i),
+                None => testutils::test_null_obj(output),
+            }
+        }
+    }
+
+    #[test]
+    fn test_dot_expression_hash_access() {
+        struct Test {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+
+        let tests = [
+            Test {
+                input: r#"{"foo": 5}.foo"#,
+                expected: Some(5),
+            },
+            Test {
+                input: r#"{"foo": 5}.bar"#,
+                expected: None,
+            },
+            Test {
+                input: r#"let obj = {"foo": {"bar": 10}}; obj.foo.bar"#,
+                expected: Some(10),
+            },
+            Test {
+                input: r#"let obj = {"greet": fn(x) { x + 1 }}; obj.greet(1)"#,
+                expected: Some(2),
             },
         ];
 
