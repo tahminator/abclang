@@ -26,6 +26,7 @@ pub enum TokenType {
 
     Ident,
     Int,
+    Float,
 
     Assign,
     Plus,
@@ -73,6 +74,7 @@ impl fmt::Display for TokenType {
             TokenType::Eof => "EOF",
             TokenType::Ident => "IDENT",
             TokenType::Int => "INT",
+            TokenType::Float => "FLOAT",
             TokenType::Assign => "=",
             TokenType::Plus => "+",
             TokenType::Minus => "-",

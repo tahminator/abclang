@@ -8,8 +8,9 @@ use crate::{
     eval::{
         builtins::BUILTINS,
         object::{
-            ArrayObject, ErrorObject, FunctionObject, HashObject, IntegerObject, NullObject,
-            Object, ObjectHasher, ObjectType, Objecter, ReturnValueObject, StringObject,
+            ArrayObject, ErrorObject, FloatObject, FunctionObject, HashObject, IntegerObject,
+            NullObject, Object, ObjectHasher, ObjectType, Objecter, ReturnValueObject,
+            StringObject,
             environment::{Env, Environment},
         },
     },
@@ -115,6 +116,9 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
         Expression::IntegerLiteral(expr) => {
             Ok(Object::Integer(IntegerObject { value: expr.value }))
         }
+        Expression::FloatLiteral(expr) => Ok(Object::Float(FloatObject {
+            value: expr.value.into(),
+        })),
         Expression::Boolean(expr) => {
             if expr.value {
                 Ok(Object::TRUE)
@@ -288,13 +292,13 @@ fn eval_bang_operator_expr(r: Object) -> Object {
 }
 
 fn eval_minus_prefix_operator_expr(r: Object) -> Result<Object, ErrorObject> {
-    let Object::Integer(r) = r else {
-        return Err(ErrorObject {
+    match r {
+        Object::Integer(r) => Ok(Object::Integer(IntegerObject { value: -r.value })),
+        Object::Float(r) => Ok(Object::Float(FloatObject { value: -r.value })),
+        _ => Err(ErrorObject {
             msg: format!("unknown operator: -{}", r.typ()),
-        });
-    };
-
-    Ok(Object::Integer(IntegerObject { value: -r.value }))
+        }),
+    }
 }
 
 fn eval_if_expression(expr: &IfExpression, env: &Env) -> Result<Object, ErrorObject> {
@@ -402,6 +406,21 @@ fn is_truthy(obj: &Object) -> bool {
 fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, ErrorObject> {
     match (l, r) {
         (Object::Integer(ol), Object::Integer(or)) => eval_integer_infix_expression(op, ol, or),
+        (Object::Float(ol), Object::Float(or)) => eval_float_infix_expression(op, ol, or),
+        (Object::Integer(ol), Object::Float(or)) => eval_float_infix_expression(
+            op,
+            FloatObject {
+                value: ol.value as f64,
+            },
+            or,
+        ),
+        (Object::Float(ol), Object::Integer(or)) => eval_float_infix_expression(
+            op,
+            ol,
+            FloatObject {
+                value: or.value as f64,
+            },
+        ),
         (Object::String(ol), Object::String(or)) => eval_string_infix_expression(op, ol, or),
         (ol, or) if op == "==" => Ok(if ol == or {
             Object::TRUE
@@ -484,6 +503,53 @@ fn eval_integer_infix_expression(
     }
 }
 
+fn eval_float_infix_expression(
+    op: &str,
+    l: FloatObject,
+    r: FloatObject,
+) -> Result<Object, ErrorObject> {
+    let lval = l.value;
+    let rval = r.value;
+
+    match op {
+        "+" => Ok(Object::Float(FloatObject { value: lval + rval })),
+        "-" => Ok(Object::Float(FloatObject { value: lval - rval })),
+        "*" => Ok(Object::Float(FloatObject { value: lval * rval })),
+        "/" => Ok(Object::Float(FloatObject { value: lval / rval })),
+        "<" => {
+            if lval < rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
+        ">" => {
+            if lval > rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
+        "==" => {
+            if lval == rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
+        "!=" => {
+            if lval != rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
+        _ => Err(ErrorObject {
+            msg: format!("unknown operator: {} {op} {}", l.typ(), r.typ()),
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::eval::client::tests::testutils::{test_eval, test_integer_obj};
@@ -527,6 +593,19 @@ mod tests {
             };
 
             if obj.value != expected {
+                panic!(
+                    "object has wrong value - received {}, expected {expected}",
+                    obj.value
+                )
+            }
+        }
+
+        pub fn test_float_obj(obj: Object, expected: f64) {
+            let Object::Float(obj) = obj else {
+                panic!("expected float object, received {obj:?}")
+            };
+
+            if (obj.value - expected).abs() > f64::EPSILON {
                 panic!(
                     "object has wrong value - received {}, expected {expected}",
                     obj.value
@@ -1734,5 +1813,36 @@ let find = fn(m, target) {
 find({1: 10, 2: 20, 3: 30}, 2)";
 
         test_integer_obj(test_eval(input).unwrap(), 20);
+    }
+
+    #[test]
+    fn test_eval_float_expression() {
+        // literal
+        testutils::test_float_obj(test_eval("3.5").unwrap(), 3.5);
+        testutils::test_float_obj(test_eval("-2.25").unwrap(), -2.25);
+        testutils::test_float_obj(test_eval("1.5 + 2.25").unwrap(), 3.75);
+
+        // via vars
+        let input = "let a = 1.5; let b = 2.75; a + b";
+        testutils::test_float_obj(test_eval(input).unwrap(), 4.25);
+
+        // in array
+        let input = "[1.5, 2.0 * 2.0, 3.0 + 0.25]";
+        let output = test_eval(input).unwrap();
+
+        let Object::Array(output) = output else {
+            panic!("expected array object, recieved {output:?}")
+        };
+
+        if output.elements.borrow().len() != 3 {
+            panic!(
+                "expected 3 elems, receieved {}",
+                output.elements.borrow().len()
+            )
+        }
+
+        testutils::test_float_obj(output.elements.borrow().first().unwrap().clone(), 1.5);
+        testutils::test_float_obj(output.elements.borrow().get(1).unwrap().clone(), 4.0);
+        testutils::test_float_obj(output.elements.borrow().get(2).unwrap().clone(), 3.25);
     }
 }

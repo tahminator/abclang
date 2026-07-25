@@ -1,4 +1,4 @@
-use std::num::ParseIntError;
+use std::num::{ParseFloatError, ParseIntError};
 
 use thiserror::Error;
 
@@ -14,4 +14,6 @@ pub enum ParserError {
     NoPrefixParseFnFound { typ: TokenType },
     #[error("failed to parse int to string")]
     FailedToParseIntToStringError(#[from] ParseIntError),
+    #[error("failed to parse float to string")]
+    FailedToParseFloatToStringError(#[from] ParseFloatError),
 }

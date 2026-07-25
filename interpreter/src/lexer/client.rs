@@ -145,13 +145,7 @@ impl Lexer {
                     typ: lookup_ident(ident),
                 });
             }
-            _ if is_digit(self.ch) => {
-                let num = self.read_number()?;
-                return Ok(Token {
-                    literal: num.into(),
-                    typ: TokenType::Int,
-                });
-            }
+            _ if is_digit(self.ch) => return self.read_number(),
             _ => Token {
                 literal: EMPTY.into(),
                 typ: TokenType::Illegal,
@@ -189,12 +183,38 @@ impl Lexer {
         self.input[pos..self.pos].as_str()
     }
 
-    fn read_number(&mut self) -> Result<&str, LexerError> {
+    fn read_number(&mut self) -> Result<Token, LexerError> {
         let pos = self.pos;
+        let mut is_float = false;
         while is_digit(self.ch) {
             self.read_char();
         }
-        self.input[pos..self.pos].as_str()
+
+        if self.ch == b'.'
+            && is_digit(
+                self.peek_char()
+                    .ok_or(LexerError::FailedToFindDigitsAfterPeriodOnFloat)?,
+            )
+        {
+            is_float = true;
+            self.read_char();
+
+            while is_digit(self.ch) {
+                self.read_char();
+            }
+        }
+
+        let num = self.input[pos..self.pos].as_str()?;
+
+        let typ = match is_float {
+            true => TokenType::Float,
+            false => TokenType::Int,
+        };
+
+        Ok(Token {
+            typ,
+            literal: num.into(),
+        })
     }
 
     fn skip_whitespace(&mut self) {
@@ -3268,6 +3288,458 @@ n = n + 1;
             Token {
                 typ: TokenType::Int,
                 literal: "1".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Eof,
+                literal: "".into(),
+            },
+        ];
+
+        for output in outputs {
+            match lexer.next_token() {
+                Ok(token) => {
+                    assert_eq!(token, output);
+                }
+                Err(e) => panic!("{}", e),
+            }
+        }
+    }
+
+    #[test]
+    fn test_next_token_real_scenario8() {
+        let input = "let five = 5;
+let ten = 10;
+
+let add = fn(x, y) {
+    x + y;
+};
+
+let result = add(five, ten);
+!-/*5;
+5 < 10 > 5;
+
+if (5 < 10) {
+    return true;
+} else {
+    return false;
+}
+
+10 == 10
+10 != 9
+
+\"foobar\"
+\"foo bar\"
+[1, 2];
+{\"foo\": \"bar\"}
+
+let n = 0;
+n = n + 1;
+
+let ten = 10.2;
+";
+
+        let mut lexer = Lexer::new(input);
+
+        let outputs = [
+            Token {
+                typ: TokenType::Let,
+                literal: "let".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "five".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "5".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Let,
+                literal: "let".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "ten".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "10".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Let,
+                literal: "let".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "add".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Function,
+                literal: "fn".into(),
+            },
+            Token {
+                typ: TokenType::LParen,
+                literal: "(".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "x".into(),
+            },
+            Token {
+                typ: TokenType::Comma,
+                literal: ",".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "y".into(),
+            },
+            Token {
+                typ: TokenType::RParen,
+                literal: ")".into(),
+            },
+            Token {
+                typ: TokenType::LBrace,
+                literal: "{".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "x".into(),
+            },
+            Token {
+                typ: TokenType::Plus,
+                literal: "+".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "y".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::RBrace,
+                literal: "}".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Let,
+                literal: "let".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "result".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "add".into(),
+            },
+            Token {
+                typ: TokenType::LParen,
+                literal: "(".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "five".into(),
+            },
+            Token {
+                typ: TokenType::Comma,
+                literal: ",".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "ten".into(),
+            },
+            Token {
+                typ: TokenType::RParen,
+                literal: ")".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Bang,
+                literal: "!".into(),
+            },
+            Token {
+                typ: TokenType::Minus,
+                literal: "-".into(),
+            },
+            Token {
+                typ: TokenType::Slash,
+                literal: "/".into(),
+            },
+            Token {
+                typ: TokenType::Asterisk,
+                literal: "*".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "5".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "5".into(),
+            },
+            Token {
+                typ: TokenType::Lt,
+                literal: "<".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "10".into(),
+            },
+            Token {
+                typ: TokenType::Gt,
+                literal: ">".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "5".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::If,
+                literal: "if".into(),
+            },
+            Token {
+                typ: TokenType::LParen,
+                literal: "(".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "5".into(),
+            },
+            Token {
+                typ: TokenType::Lt,
+                literal: "<".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "10".into(),
+            },
+            Token {
+                typ: TokenType::RParen,
+                literal: ")".into(),
+            },
+            Token {
+                typ: TokenType::LBrace,
+                literal: "{".into(),
+            },
+            Token {
+                typ: TokenType::Return,
+                literal: "return".into(),
+            },
+            Token {
+                typ: TokenType::True,
+                literal: "true".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::RBrace,
+                literal: "}".into(),
+            },
+            Token {
+                typ: TokenType::Else,
+                literal: "else".into(),
+            },
+            Token {
+                typ: TokenType::LBrace,
+                literal: "{".into(),
+            },
+            Token {
+                typ: TokenType::Return,
+                literal: "return".into(),
+            },
+            Token {
+                typ: TokenType::False,
+                literal: "false".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::RBrace,
+                literal: "}".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "10".into(),
+            },
+            Token {
+                typ: TokenType::Eq,
+                literal: "==".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "10".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "10".into(),
+            },
+            Token {
+                typ: TokenType::NotEq,
+                literal: "!=".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "9".into(),
+            },
+            Token {
+                typ: TokenType::String,
+                literal: "foobar".into(),
+            },
+            Token {
+                typ: TokenType::String,
+                literal: "foo bar".into(),
+            },
+            Token {
+                typ: TokenType::LBracket,
+                literal: "[".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "1".into(),
+            },
+            Token {
+                typ: TokenType::Comma,
+                literal: ",".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "2".into(),
+            },
+            Token {
+                typ: TokenType::RBracket,
+                literal: "]".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::LBrace,
+                literal: "{".into(),
+            },
+            Token {
+                typ: TokenType::String,
+                literal: "foo".into(),
+            },
+            Token {
+                typ: TokenType::Colon,
+                literal: ":".into(),
+            },
+            Token {
+                typ: TokenType::String,
+                literal: "bar".into(),
+            },
+            Token {
+                typ: TokenType::RBrace,
+                literal: "}".into(),
+            },
+            Token {
+                typ: TokenType::Let,
+                literal: "let".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "n".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "0".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "n".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "n".into(),
+            },
+            Token {
+                typ: TokenType::Plus,
+                literal: "+".into(),
+            },
+            Token {
+                typ: TokenType::Int,
+                literal: "1".into(),
+            },
+            Token {
+                typ: TokenType::Semicolon,
+                literal: ";".into(),
+            },
+            Token {
+                typ: TokenType::Let,
+                literal: "let".into(),
+            },
+            Token {
+                typ: TokenType::Ident,
+                literal: "ten".into(),
+            },
+            Token {
+                typ: TokenType::Assign,
+                literal: "=".into(),
+            },
+            Token {
+                typ: TokenType::Float,
+                literal: "10.2".into(),
             },
             Token {
                 typ: TokenType::Semicolon,
