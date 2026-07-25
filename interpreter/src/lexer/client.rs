@@ -6,14 +6,14 @@ use crate::lexer::{
 
 pub struct Lexer {
     input: Box<[u8]>,
-    /**
-     * current position in input (points to current char)
-     */
+    /// current position in input (points to current char)
     pos: usize,
-    /**
-     * current reading position in input (after current char)
-     */
+    /// current reading position in input (after current char)
     read_pos: usize,
+    start: usize,
+    end: usize,
+    /// tracks where comments can be found (useful for syntax highlighting)
+    comments: Vec<(usize, usize)>,
     ch: u8,
 }
 
@@ -25,14 +25,36 @@ impl Lexer {
             input: input.as_bytes().into(),
             pos: 0,
             read_pos: 0,
+            start: 0,
+            end: 0,
+            comments: Vec::new(),
             ch: 0,
         };
         lexer.read_char();
         lexer
     }
 
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    pub fn end(&self) -> usize {
+        self.end
+    }
+
+    pub fn comments(&self) -> &[(usize, usize)] {
+        &self.comments
+    }
+
     pub fn next_token(&mut self) -> Result<Token, LexerError> {
+        let tok = self.scan_token()?;
+        self.end = self.pos;
+        Ok(tok)
+    }
+
+    fn scan_token(&mut self) -> Result<Token, LexerError> {
         self.skip_whitespace();
+        self.start = self.pos;
 
         let tok = match self.ch {
             b'=' => {
@@ -73,8 +95,10 @@ impl Lexer {
             }
             b'/' => {
                 if let Some(b'/') = self.peek_char() {
+                    let start = self.pos;
                     self.skip_comment();
-                    return self.next_token();
+                    self.comments.push((start, self.pos));
+                    return self.scan_token();
                 } else {
                     Token {
                         literal: "/".into(),

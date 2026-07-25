@@ -1,5 +1,9 @@
-import init, { Interpreter } from "./lib/abclang/abclang";
+import init, {
+  Interpreter,
+  tokenize,
+  Category,
+} from "./lib/abclang/abclang";
 
 await init();
 
-export { Interpreter };
+export { Interpreter, tokenize, Category };
