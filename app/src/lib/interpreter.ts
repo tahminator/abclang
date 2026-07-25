@@ -1,9 +1,15 @@
 import { Interpreter } from "../wasm";
 
-export function run(source: string): string {
+type Result = string;
+type Latency = string;
+
+export function run(source: string): [Result, Latency] {
   const interpreter = new Interpreter();
+  const start = performance.now();
   try {
-    return interpreter.evaluate(source);
+    const result = interpreter.evaluate(source);
+    const end = performance.now();
+    return [result, (end - start).toFixed(4)];
   } finally {
     interpreter.free();
   }

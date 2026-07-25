@@ -6,6 +6,7 @@ import { useUrlEditorState } from "../lib/url/editor";
 export type RunResult = {
   output: string;
   hasRun: boolean;
+  timeToRun?: string;
 };
 
 export function useEditor() {
@@ -30,13 +31,12 @@ export function useEditor() {
   };
 
   const onClear = () => {
-    setCode("");
-    setSelected("");
     setResult({ output: "", hasRun: false });
   };
 
   const onRun = () => {
-    setResult({ output: run(code), hasRun: true });
+    const [result, timeToRun] = run(code);
+    setResult({ output: result, timeToRun, hasRun: true });
   };
 
   return {
