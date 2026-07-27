@@ -23,9 +23,8 @@ fn category_for(typ: TokenType) -> Option<Category> {
         Assign | Plus | Minus | Bang | Asterisk | Slash | Lt | Gt | Eq | NotEq => {
             Category::Operator
         }
-        Comma | Semicolon | LParen | RParen | LBrace | RBrace | LBracket | RBracket | Colon => {
-            Category::Punctuation
-        }
+        Comma | Semicolon | LParen | RParen | LBrace | RBrace | LBracket | RBracket | Colon
+        | Dot => Category::Punctuation,
         Ident => Category::Ident,
         Illegal => Category::Illegal,
         Eof => return None,

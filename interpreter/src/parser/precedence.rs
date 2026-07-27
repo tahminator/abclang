@@ -20,7 +20,7 @@ impl Precedence {
             TokenType::Plus | TokenType::Minus => Precedence::Sum,
             TokenType::Slash | TokenType::Asterisk => Precedence::Product,
             TokenType::LParen => Precedence::Call,
-            TokenType::LBracket => Precedence::Index,
+            TokenType::LBracket | TokenType::Dot => Precedence::Index,
             _ => Precedence::Lowest,
         }
     }
