@@ -163,6 +163,10 @@ impl Lexer {
                 literal: ":".into(),
                 typ: TokenType::Colon,
             },
+            b'.' => Token {
+                literal: ".".into(),
+                typ: TokenType::Dot,
+            },
             0 => Token {
                 literal: "".into(),
                 typ: TokenType::Eof,

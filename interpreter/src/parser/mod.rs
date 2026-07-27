@@ -66,6 +66,7 @@ impl Parser {
 
         parser.register_infix(TokenType::LParen, Parser::parse_call_expression);
         parser.register_infix(TokenType::LBracket, Parser::parse_index_expression);
+        parser.register_infix(TokenType::Dot, Parser::parse_dot_expression);
 
         parser.next_token();
         parser.next_token();
@@ -335,6 +336,24 @@ impl Parser {
         if !self.expect_peek(TokenType::RBracket) {
             return None;
         }
+
+        Some(Expression::Index(IndexExpression { token, left, index }))
+    }
+
+    fn parse_dot_expression(&mut self, expr: Expression) -> Option<Expression> {
+        let token = self.cur_token.clone();
+        let left = expr.into();
+
+        if !self.expect_peek(TokenType::Ident) {
+            return None;
+        }
+
+        // dot sugar should only be for string keys
+        let index = Expression::String(StringExpression {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        })
+        .into();
 
         Some(Expression::Index(IndexExpression { token, left, index }))
     }
@@ -1513,6 +1532,46 @@ mod tests {
 
         test_identifier(&expr.left, "myArray");
         test_infix_expr(&expr.index, 1, "+", 1);
+    }
+
+    #[test]
+    fn test_parsing_dot_expressions() {
+        let input = "myHash.field";
+
+        let prog = parse_program_or_panic(input);
+
+        let stmt = prog.statements.first().unwrap().clone();
+        let Statement::Expression(stmt) = stmt else {
+            panic!("expected statement expr, received {stmt:?}")
+        };
+
+        let Expression::Index(expr) = stmt.expr else {
+            panic!("expected index expr, received {:?}", stmt.expr)
+        };
+
+        test_identifier(&expr.left, "myHash");
+
+        let Expression::String(key) = expr.index.as_ref() else {
+            panic!("expected string index, received {:?}", expr.index)
+        };
+
+        if key.value.as_ref() != "field" {
+            panic!("expected key \"field\", received {}", key.value)
+        }
+    }
+
+    #[test]
+    fn test_parsing_chained_dot_expressions() {
+        let input = "a.b.c";
+
+        let prog = parse_program_or_panic(input);
+
+        let actual_str = prog.to_string();
+        let expected = "((a[b])[c])";
+
+        if actual_str != expected {
+            panic!("expected {}, received {}", expected, actual_str)
+        }
     }
 
     #[test]

@@ -1568,6 +1568,40 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_dot_access() {
+        struct Test {
+            input: &'static str,
+            expected: Option<i64>,
+        }
+        let tests = [
+            Test {
+                input: r#"{"foo": 5}.foo"#,
+                expected: Some(5),
+            },
+            Test {
+                input: r#"{"foo": 5}.bar"#,
+                expected: None,
+            },
+            Test {
+                input: r#"let h = {"foo": 5}; h.foo"#,
+                expected: Some(5),
+            },
+            Test {
+                input: r#"let h = {"a": {"b": 42}}; h.a.b"#,
+                expected: Some(42),
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input).unwrap();
+            match test.expected {
+                Some(i) => testutils::test_integer_obj(output, i),
+                None => testutils::test_null_obj(output),
+            }
+        }
+    }
+
+    #[test]
     fn test_set_on_hash() {
         struct Test {
             input: &'static str,

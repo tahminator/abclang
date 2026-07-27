@@ -108,6 +108,39 @@ people[1]["name"] + " & " + people[0]["name"];
 `,
   },
   {
+    name: "dot syntax / classes",
+    code: `// hashmap fields can be read with dot syntax: hash.field is just
+// shorthand for hash["field"]. the name after the dot is always a
+// literal key (not a variable).
+let person = {"name": "Alice", "age": 24};
+
+println(person.name);
+println(person.age);
+
+// abclang has no classes, but you can model them with hashmaps:
+// store data under keys and behavior as fn values. because functions
+// are closures, a constructor captures its arguments, so the methods
+// can use the fields without any "this".
+let newRect = fn(width, height) {
+  {
+    "width": width,
+    "height": height,
+    "area": fn() { width * height },
+    // methods can even return new "instances"
+    "scale": fn(factor) { newRect(width * factor, height * factor) }
+  }
+};
+
+let r = newRect(3, 4);
+println("width:", r.width);
+println("area:", r.area());
+
+let big = r.scale(2);
+println("scaled width:", big.width);
+println("scaled area:", big.area());
+`,
+  },
+  {
     name: "builtins",
     code: `// abclang has some default builtins you may use
 
