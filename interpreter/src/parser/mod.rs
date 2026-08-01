@@ -380,26 +380,42 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.typ {
             TokenType::Let => self.parse_let_statement().map(Statement::Let),
-            TokenType::Ident if self.peek_token_is(TokenType::Assign) => {
-                self.parse_assign_statement().map(Statement::Assign)
-            }
             TokenType::Return => self.parse_return_statement().map(Statement::Return),
-            _ => self.parse_expression_statement().map(Statement::Expression),
+            _ => self.parse_expression_statement(),
         }
     }
 
-    fn parse_assign_statement(&mut self) -> Option<AssignStatement> {
+    fn parse_expression_statement(&mut self) -> Option<Statement> {
         let token = self.cur_token.clone();
 
-        let name = IdentifierExpression {
-            value: self.cur_token.literal.clone(),
-            token: self.cur_token.clone(),
-        };
+        let expr = self.parse_expression(Precedence::Lowest)?;
 
-        if !self.expect_peek(TokenType::Assign) {
+        if self.peek_token_is(TokenType::Assign) {
+            return self
+                .parse_assign_statement(token, expr)
+                .map(Statement::Assign);
+        }
+
+        if self.peek_token_is(TokenType::Semicolon) {
+            self.next_token();
+        }
+
+        Some(Statement::Expression(ExpressionStatement { token, expr }))
+    }
+
+    fn parse_assign_statement(
+        &mut self,
+        token: Rc<Token>,
+        target: Expression,
+    ) -> Option<AssignStatement> {
+        if !matches!(target, Expression::Identifier(_) | Expression::Index(_)) {
+            self.errors.push(ParserError::InvalidAssignmentTarget {
+                target: target.to_string(),
+            });
             return None;
         }
 
+        self.next_token();
         self.next_token();
 
         let value = self.parse_expression(Precedence::Lowest)?;
@@ -408,19 +424,11 @@ impl Parser {
             self.next_token();
         }
 
-        Some(AssignStatement { token, name, value })
-    }
-
-    fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
-        let token = self.cur_token.clone();
-
-        let expr = self.parse_expression(Precedence::Lowest)?;
-
-        if self.peek_token_is(TokenType::Semicolon) {
-            self.next_token();
-        }
-
-        Some(ExpressionStatement { token, expr })
+        Some(AssignStatement {
+            token,
+            target,
+            value,
+        })
     }
 
     fn parse_function_params(&mut self) -> Vec<IdentifierExpression> {
@@ -901,14 +909,88 @@ mod tests {
                 panic!("expected assign statement, receieved {stmt:?}")
             };
 
-            if stmt.name.value.as_ref() != test.expected_identifier {
+            let Expression::Identifier(target) = &stmt.target else {
+                panic!("expected identifier target, received {:?}", stmt.target)
+            };
+
+            if target.value.as_ref() != test.expected_identifier {
                 panic!(
                     "expected identifier {}, received {}",
-                    test.expected_identifier, stmt.name.value
+                    test.expected_identifier, target.value
                 )
             }
 
             test_literal_expr(&stmt.value, test.expected_value);
+        }
+    }
+
+    #[test]
+    fn test_index_assign_statements() {
+        struct Test {
+            input: &'static str,
+            expected_target: &'static str,
+        }
+
+        // only identifiers and index expressions (incl. dot sugar) are valid
+        // assignment targets, and each should parse into an AssignStatement.
+        let tests = [
+            Test {
+                input: "arr[0] = 5;",
+                expected_target: "(arr[0])",
+            },
+            Test {
+                input: r#"map["k"] = 5;"#,
+                expected_target: "(map[k])",
+            },
+            Test {
+                input: "map.field = 5;",
+                expected_target: "(map[field])",
+            },
+            Test {
+                input: "grid[1][0] = 5;",
+                expected_target: "((grid[1])[0])",
+            },
+        ];
+
+        for test in tests.iter() {
+            let prog = parse_program_with_len(test.input, 1);
+
+            let stmt = prog.statements.first().unwrap();
+
+            let Statement::Assign(stmt) = stmt else {
+                panic!("expected assign statement, received {stmt:?}")
+            };
+
+            if stmt.target.to_string() != test.expected_target {
+                panic!(
+                    "expected target {}, received {}",
+                    test.expected_target, stmt.target
+                )
+            }
+        }
+    }
+
+    #[test]
+    fn test_invalid_assignment_targets() {
+        // targets that are neither an identifier nor an index expression must be
+        // rejected at parse time.
+        let inputs = ["1 = 2;", "foo() = 2;", "(a + b) = 2;", "true = 2;"];
+
+        for input in inputs.iter() {
+            let lexer = lexer::Lexer::new(input);
+            let mut parser = Parser::new(lexer).unwrap();
+
+            let Err(errors) = parser.parse_program() else {
+                panic!("expected parser error for input {input:?}")
+            };
+
+            let has_invalid_target = errors
+                .iter()
+                .any(|e| matches!(e, ParserError::InvalidAssignmentTarget { .. }));
+
+            if !has_invalid_target {
+                panic!("expected InvalidAssignmentTarget error for input {input:?}, got {errors:?}")
+            }
         }
     }
 

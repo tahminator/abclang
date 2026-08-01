@@ -74,7 +74,8 @@ impl Display for LetStatement {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssignStatement {
     pub token: Rc<Token>,
-    pub name: IdentifierExpression,
+    /// IdentifierExpression & IndexExpression
+    pub target: Expression,
     pub value: Expression,
 }
 
@@ -86,7 +87,7 @@ impl Node for AssignStatement {
 
 impl Display for AssignStatement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{} = {};", self.name.value, self.value)
+        write!(f, "{} = {};", self.target, self.value)
     }
 }
 
