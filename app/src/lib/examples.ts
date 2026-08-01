@@ -24,6 +24,33 @@ let b = 10;
 `,
   },
   {
+    name: "reassignment",
+    code: `// 'let' introduces a binding; a bare '=' reassigns an existing one.
+let count = 0;
+count = count + 1;
+count = count + 1;
+println("count:", count); // => 2
+
+// arrays are mutable: assign straight into an index (must be in bounds).
+let nums = [1, 2, 3];
+nums[0] = 99;
+nums[2] = nums[2] + 100;
+println("nums:", nums); // => [99, 2, 103]
+
+// hashmaps too: assigning a new key inserts, an existing key updates.
+let ages = {"alice": 30};
+ages["bob"] = 25; // insert
+ages["alice"] = 31; // update
+ages.carol = 41; // dot sugar for ages["carol"] = 41
+println("ages:", ages);
+
+// assignment reaches through nesting and shared references.
+let grid = [[0, 0], [0, 0]];
+grid[1][0] = 7;
+println("grid:", grid); // => [[0, 0], [7, 0]]
+`,
+  },
+  {
     name: "numbers",
     code: `// abclang has two number types: ints and floats.
 
@@ -91,11 +118,12 @@ let abc = [
   len("hello world")
 ];
 
-// use push() to insert an element into array
+// use push() to grow the array with a new element
 abc = push(abc, 3)
 println(abc)
 
-// or print a specific index
+// overwrite a specific index in place
+abc[0] = 100
 println(abc[0])
 `,
   },
@@ -103,6 +131,10 @@ println(abc[0])
     name: "hashmaps",
     code: `// abclang supports hashmaps. they do not have to be homogoneous (same elements). you can use integer, boolean, or string as key.
 let people = [{"name": "Alice", "age": 24}, {"name": "Anna", "age": 28}];
+
+// index and key assignment mutate in place, and reach through nesting.
+people[1]["name"] = "Beth";
+people[0]["age"] = people[0]["age"] + 1;
 
 people[1]["name"] + " & " + people[0]["name"];
 `,
@@ -160,14 +192,13 @@ println("minmax example:", [len(fullname), longest, shortest]);
 // last(arr) -> arr[len(arr) - 1]
 // rest(arr) -> returns arr[1..len(arr)]
 // push(arr, itm) -> grows arr = [...arr, itm]
-// set(arr, idx, val) -> overwrites arr[idx] = val (idx must be in bounds)
-// set(map, key, val) -> inserts or updates map[key] = val
 // range(n) -> [0, 1, ..., n - 1]
 // range(start, end) -> [start, ..., end - 1]
 
+// to overwrite in place, assign straight into an index or key:
+// arr[idx] = val (idx must be in bounds), map[key] = val (inserts or updates)
+
 println("push array example:", push([1, 2], 3));
-println("set array example:", set([1, 2, 3], 1, 9));
-println("set map example:", set({"a": 1}, "b", 2));
 println("range example:", range(1, 5));
 
 // you can chain these together to make a map function!
@@ -274,7 +305,7 @@ for name, age in ages {
     if (seen[need]) {
       return [seen[need], i];
     }
-    seen = set(seen, nums[i], i);
+    seen[nums[i]] = i;
   }
   return [];
 };

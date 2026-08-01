@@ -26,20 +26,20 @@ This is an ongoing project, and I will continue to extend the language with as m
 
 ## Features
 
-_Last updated: 07/25/2026_
+_Last updated: 08/01/2026_
 
 abclang supports
 
-- [Two number types: 64-bit integers and floats, with automatic int to float promotion when mixed](./interpreter/src/eval/client.rs#L406)
-- [`let` bindings and reassignment](./interpreter/src/eval/client.rs#L57)
-- [First-class functions (`fn`), closures, and recursion](./interpreter/src/eval/client.rs#L100)
-- [`if` / `else` as an **expression** that evaluates to a value](./interpreter/src/eval/client.rs#L304)
-- [`for ... in` loops over arrays, ranges, and hashmaps (`for key, value in map`)](./interpreter/src/eval/client.rs#L326)
-- [Strings with `+` concatenation](./interpreter/src/eval/client.rs#L444)
-- [Arrays and hashmaps (both mutable, both allowed to be heterogeneous)](./interpreter/src/eval/client.rs#L178)
-- [Index access & assignment, including nested (`people[1]["name"]`)](./interpreter/src/eval/client.rs#L196)
-- [`//` line comments](./interpreter/src/lexer/client.rs#L196)
-- [A standard library of builtins: `len`, `max`, `min`, `first`, `last`, `rest`, `push`, `set`, `range`, `print`, `println`](./interpreter/src/eval/builtins.rs#L8)
+- [Two number types: 64-bit integers and floats, with automatic int to float promotion when mixed](./interpreter/src/eval/mod.rs#L465)
+- [`let` bindings and reassignment (`x = v`, `arr[i] = v`, `map[k] = v`)](./interpreter/src/eval/mod.rs#L72)
+- [First-class functions (`fn`), closures, and recursion](./interpreter/src/eval/mod.rs#L117)
+- [`if` / `else` as an **expression** that evaluates to a value](./interpreter/src/eval/mod.rs#L363)
+- [`for ... in` loops over arrays, ranges, and hashmaps (`for key, value in map`)](./interpreter/src/eval/mod.rs#L385)
+- [Strings with `+` concatenation](./interpreter/src/eval/mod.rs#L503)
+- [Arrays and hashmaps (both mutable, both allowed to be heterogeneous)](./interpreter/src/eval/mod.rs#L152)
+- [Index access & assignment, including nested (`people[1]["name"] = "z"`)](./interpreter/src/eval/mod.rs#L213)
+- [`//` line comments](./interpreter/src/lexer/mod.rs#L104)
+- [A standard library of builtins: `len`, `max`, `min`, `first`, `last`, `rest`, `push`, `range`, `print`, `println`](./interpreter/src/eval/builtins.rs#L8)
 
 There is no server-side runtime. The interpreter compiles to WebAssembly and executes fully client-side in the web playground.
 
@@ -59,8 +59,14 @@ let classify = fn(n) {
   if (n > 0) { "positive" } else { "non-positive" };
 };
 
-// arrays, hashmaps, and for loops
+// arrays and hashmaps are mutable: assign straight into an index or key
+let scores = [10, 20, 30];
+scores[0] = 99; // => [99, 20, 30]
+
 let ages = {"alice": 30, "bob": 25};
+ages["carol"] = 41; // insert a new key
+ages.bob = 26;      // dot sugar for ages["bob"] = 26
+
 for name, age in ages {
   println(name, age);
 }
@@ -71,7 +77,7 @@ for name, age in ages {
 
 ## Structure
 
-_Last updated: 07/25/2026_
+_Last updated: 08/01/2026_
 
 This repository is a [Cargo workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html) plus a frontend, split into a few distinct pieces:
 
@@ -79,7 +85,7 @@ This repository is a [Cargo workspace](https://doc.rust-lang.org/book/ch14-03-ca
   - [Goto `interpreter/`](./interpreter/)
 - A native REPL built on [rustyline](https://github.com/kkawakam/rustyline) that consumes the `interpreter` crate directly. It supports a `dprint ` prefix to dump the parsed AST for any line.
   - [Goto `repl/`](./repl/)
-  - [View the REPL loop](./repl/src/client.rs)
+  - [View the REPL loop](./repl/src/repl.rs)
 - A thin [wasm-bindgen](https://rustwasm.github.io/wasm-bindgen/) wrapper that exposes the interpreter to JavaScript. It exports an `Interpreter` class (with `evaluate` and `reset`) as well as a `tokenize` function used to drive editor syntax highlighting.
   - [Goto `wasm/`](./wasm/)
   - [View the wasm entrypoint](./wasm/src/lib.rs)
@@ -101,7 +107,7 @@ abclang
 │       ├── parser              # tokens -> AST, via a Pratt (operator-precedence) parser
 │       ├── ast                 # statement & expression node definitions
 │       └── eval                # tree-walking evaluator
-│           ├── builtins.rs     # len, max, min, first, last, rest, push, set, range, print, println
+│           ├── builtins.rs     # len, max, min, first, last, rest, push, range, print, println
 │           └── object          # runtime object system + lexical environments
 ├── repl                        # native rustyline REPL that links against `interpreter`
 ├── wasm                        # wasm-bindgen bindings: Interpreter class + tokenize()
@@ -126,7 +132,7 @@ A program flows through the same three stages whether it runs in the REPL or the
 
 1. **Lexing**: [`Lexer`](./interpreter/src/lexer/) walks the source and produces a stream of [`Token`](./interpreter/src/lexer/token.rs)s. Keywords like `fn`, `let`, `if`, `for`, and `in` are recognized via a compile-time [`phf`](https://github.com/rust-phf/rust-phf) map. The lexer also records comment spans separately so the editor can highlight them.
 2. **Parsing**: [`Parser`](./interpreter/src/parser/) turns tokens into an [AST](./interpreter/src/ast/) using a Pratt parser. Operator [precedence](./interpreter/src/parser/precedence.rs) runs from `Lowest` up through equality, comparison, sum, product, prefix, call, and index.
-3. **Evaluation**: [`evaluate`](./interpreter/src/eval/) walks the AST against an [`Environment`](./interpreter/src/eval/object/environment.rs). Every value is an [`Object`](./interpreter/src/eval/object/client.rs) (`Integer`, `Float`, `Boolean`, `String`, `Array`, `Hash`, `Function`, and so on). Closures capture their defining environment, and `print`/`println` write into an output buffer that the host (REPL or web app) drains after the run.
+3. **Evaluation**: [`evaluate`](./interpreter/src/eval/) walks the AST against an [`Environment`](./interpreter/src/eval/object/environment.rs). Every value is an [`Object`](./interpreter/src/eval/object/mod.rs#L56) (`Integer`, `Float`, `Boolean`, `String`, `Array`, `Hash`, `Function`, and so on). Closures capture their defining environment, and `print`/`println` write into an output buffer that the host (REPL or web app) drains after the run.
 
 > [!NOTE]
 > The interpreter crate has no I/O of its own beyond that captured output buffer, which is what makes it safe and easy to drop into a WebAssembly sandbox.

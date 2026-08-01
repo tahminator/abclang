@@ -72,12 +72,26 @@ fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
         Statement::Assign(stmt) => {
             let val = eval_expression(&stmt.value, env)?;
 
-            if env.borrow_mut().assign(&stmt.name.value, val) {
-                Ok(Object::NULL)
-            } else {
-                Err(ErrorObject {
-                    msg: format!("identifier not found: {}", stmt.name.value),
-                })
+            match &stmt.target {
+                Expression::Identifier(ident) => {
+                    if env.borrow_mut().assign(&ident.value, val) {
+                        Ok(Object::NULL)
+                    } else {
+                        Err(ErrorObject {
+                            msg: format!("identifier not found: {}", ident.value),
+                        })
+                    }
+                }
+                Expression::Index(idx) => {
+                    let left = eval_expression(&idx.left, env)?;
+                    let index = eval_expression(&idx.index, env)?;
+
+                    eval_index_assign(&left, &index, val)?;
+                    Ok(Object::NULL)
+                }
+                other => Err(ErrorObject {
+                    msg: format!("invalid assignment target: {other}"),
+                }),
             }
         }
     }
@@ -202,6 +216,43 @@ fn eval_index_expression(left: &Object, index: &Object) -> Result<Object, ErrorO
         (Object::Hash(left), index) => eval_hash_index_expression(left, index),
         _ => Err(ErrorObject {
             msg: format!("index operator not supported: {}", left.typ()),
+        }),
+    }
+}
+
+fn eval_index_assign(left: &Object, index: &Object, value: Object) -> Result<(), ErrorObject> {
+    match (left, index) {
+        (Object::Array(arr), Object::Integer(idx)) => {
+            let mut elements = arr.elements.try_borrow_mut()?;
+            let len = elements.len();
+
+            let i = idx.value;
+            let slot = elements.get_mut(i as usize).ok_or_else(|| ErrorObject {
+                msg: format!(
+                    "index {i} out of bounds for Array of length {len}, use `push` to grow"
+                ),
+            })?;
+
+            *slot = value;
+
+            Ok(())
+        }
+        (Object::Array(_), index) => Err(ErrorObject {
+            msg: format!("array index must be an Integer, got {}", index.typ()),
+        }),
+        (Object::Hash(hash), key) => {
+            let hashed = key.hash_key().ok_or_else(|| ErrorObject {
+                msg: format!("{} is unusable as a hash key", key.typ()),
+            })?;
+
+            hash.pairs
+                .try_borrow_mut()?
+                .insert(hashed, (key.clone(), value));
+
+            Ok(())
+        }
+        _ => Err(ErrorObject {
+            msg: format!("index assignment not supported: {}", left.typ()),
         }),
     }
 }
@@ -1002,16 +1053,24 @@ mod tests {
                 expected_message: "wrong number of arguments to `push`. got=3, want=2",
             },
             Test {
-                input: r#"set({"a": 1}, "b")"#,
-                expected_message: "wrong number of arguments to `set`. got=2, want=3",
-            },
-            Test {
                 input: "push(5, 1)",
                 expected_message: "argument to `push` not supported, expected Array, got Integer",
             },
             Test {
-                input: "set([1, 2], 5, 9)",
-                expected_message: "index 5 out of bounds for Array of length 2, use `push` to grow",
+                input: "let a = [1, 2, 3]; a[5] = 9",
+                expected_message: "index 5 out of bounds for Array of length 3, use `push` to grow",
+            },
+            Test {
+                input: r#"let a = [1, 2, 3]; a["x"] = 9"#,
+                expected_message: "array index must be an Integer, got String",
+            },
+            Test {
+                input: "let n = 5; n[0] = 1",
+                expected_message: "index assignment not supported: Integer",
+            },
+            Test {
+                input: r#"let h = {}; h[fn(x) { x }] = 1"#,
+                expected_message: "Function is unusable as a hash key",
             },
         ];
 
@@ -1089,6 +1148,57 @@ mod tests {
             Test {
                 input: "let a = 0; let f = fn() { a = 9; }; f(); a",
                 expected: 9,
+            },
+        ];
+
+        for test in tests.iter() {
+            test_integer_obj(test_eval(test.input).unwrap(), test.expected);
+        }
+    }
+
+    #[test]
+    fn test_index_assignment() {
+        struct Test {
+            input: &'static str,
+            expected: i64,
+        }
+
+        let tests = [
+            Test {
+                input: "let a = [1, 2, 3]; a[0] = 9; a[0]",
+                expected: 9,
+            },
+            Test {
+                input: "let a = [1, 2, 3]; a[2] = 30; a[0] + a[1] + a[2]",
+                expected: 33,
+            },
+            Test {
+                input: "let a = [1, 2, 3]; let i = 1; a[i] = a[i] + 5; a[1]",
+                expected: 7,
+            },
+            Test {
+                input: r#"let h = {"a": 1}; h["a"] = 5; h["a"]"#,
+                expected: 5,
+            },
+            Test {
+                input: r#"let h = {"a": 1}; h["b"] = 2; h["a"] + h["b"]"#,
+                expected: 3,
+            },
+            Test {
+                input: "let h = {}; h[1] = 10; h[1]",
+                expected: 10,
+            },
+            Test {
+                input: r#"let h = {"x": 1}; h.x = 42; h.x"#,
+                expected: 42,
+            },
+            Test {
+                input: r#"let people = [{"name": "a"}, {"name": "b"}]; people[1]["name"] = "z"; len(people[1]["name"])"#,
+                expected: 1,
+            },
+            Test {
+                input: "let a = [1, 2, 3]; let b = a; a[0] = 99; b[0]",
+                expected: 99,
             },
         ];
 
@@ -1416,14 +1526,6 @@ mod tests {
                 input: "push([], 1)",
                 expected: Expected::IntArray(&[1]),
             },
-            Test {
-                input: "set([1, 2, 3], 1, 9)",
-                expected: Expected::IntArray(&[1, 9, 3]),
-            },
-            Test {
-                input: "set([1, 2, 3], 0, 7)",
-                expected: Expected::IntArray(&[7, 2, 3]),
-            },
         ];
 
         for test in tests.iter() {
@@ -1589,45 +1691,6 @@ mod tests {
             Test {
                 input: r#"let h = {"a": {"b": 42}}; h.a.b"#,
                 expected: Some(42),
-            },
-        ];
-
-        for test in tests.iter() {
-            let output = testutils::test_eval(test.input).unwrap();
-            match test.expected {
-                Some(i) => testutils::test_integer_obj(output, i),
-                None => testutils::test_null_obj(output),
-            }
-        }
-    }
-
-    #[test]
-    fn test_set_on_hash() {
-        struct Test {
-            input: &'static str,
-            expected: Option<i64>,
-        }
-
-        let tests = [
-            Test {
-                input: r#"set({}, "a", 1)["a"]"#,
-                expected: Some(1),
-            },
-            Test {
-                input: r#"set({"a": 1}, "b", 2)["a"]"#,
-                expected: Some(1),
-            },
-            Test {
-                input: r#"set({"a": 1}, "b", 2)["b"]"#,
-                expected: Some(2),
-            },
-            Test {
-                input: r#"set({"a": 1}, "a", 99)["a"]"#,
-                expected: Some(99),
-            },
-            Test {
-                input: "set({}, 5, 50)[5]",
-                expected: Some(50),
             },
         ];
 
