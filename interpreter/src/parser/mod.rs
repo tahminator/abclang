@@ -8,8 +8,8 @@ use crate::{
         self, ArrayExpression, AssignStatement, BlockStatement, BooleanExpression, CallExpression,
         Expression, ExpressionStatement, FloatLiteralExpression, FnLiteralExpression,
         ForExpression, HashExpression, IdentifierExpression, IfExpression, IndexExpression,
-        InfixExpression, IntegerLiteralExpression, LetStatement, PrefixExpression, Program,
-        ReturnStatement, Statement, StringExpression,
+        InfixExpression, IntegerLiteralExpression, LetStatement, NullLiteralExpression,
+        PrefixExpression, Program, ReturnStatement, Statement, StringExpression,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -46,6 +46,7 @@ impl Parser {
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::True, Parser::parse_boolean);
         parser.register_prefix(TokenType::False, Parser::parse_boolean);
+        parser.register_prefix(TokenType::Null, Parser::parse_null_literal);
         parser.register_prefix(TokenType::LParen, Parser::parse_grouped_expression);
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
         parser.register_prefix(TokenType::For, Parser::parse_for_expression);
@@ -176,6 +177,12 @@ impl Parser {
             token,
             params,
             body,
+        }))
+    }
+
+    fn parse_null_literal(&mut self) -> Option<Expression> {
+        Some(Expression::NullLiteral(NullLiteralExpression {
+            token: self.cur_token.clone(),
         }))
     }
 

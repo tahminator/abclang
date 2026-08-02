@@ -143,6 +143,7 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
                 Ok(Object::FALSE)
             }
         }
+        Expression::NullLiteral(_) => Ok(Object::NULL),
         Expression::Hash(expr) => eval_hash_literal(expr, env),
         Expression::Prefix(expr) => {
             let r = eval_expression(&expr.right, env)?;
@@ -527,6 +528,11 @@ fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, Error
             Object::FALSE
         }),
         (ol, or) if op == "!=" => Ok(if ol != or {
+            Object::TRUE
+        } else {
+            Object::FALSE
+        }),
+        (ol, Object::NULL) => Ok(if ol == Object::NULL {
             Object::TRUE
         } else {
             Object::FALSE
@@ -2014,5 +2020,140 @@ find({1: 10, 2: 20, 3: 30}, 2)";
     fn test_eval_string_looping() {
         let output = testutils::test_eval_output(r#" let s = "xyz"; for c in s { print(c) }; "#).1;
         assert_eq!(output, "xyz");
+    }
+
+    #[test]
+    fn test_null_literal_expression() {
+        let inputs = [
+            "null",
+            "let x = null; x",
+            "let f = fn() { null }; f()",
+            r#"{"a": 1}["b"]"#,
+            r#"{"a": null}["a"]"#,
+            r#"let m = {"a": 1}; m.b"#,
+            "[1, 2, 3][5]",
+            "[null][0]",
+        ];
+
+        for input in inputs.iter() {
+            let output = testutils::test_eval(input).unwrap();
+            testutils::test_null_obj(output);
+        }
+    }
+
+    #[test]
+    fn test_null_comparisons() {
+        struct Test {
+            input: &'static str,
+            expected: bool,
+        }
+
+        let tests = [
+            Test {
+                input: "null == null",
+                expected: true,
+            },
+            Test {
+                input: "null != null",
+                expected: false,
+            },
+            Test {
+                input: "null == 5",
+                expected: false,
+            },
+            Test {
+                input: "5 == null",
+                expected: false,
+            },
+            Test {
+                input: "null != 5",
+                expected: true,
+            },
+            Test {
+                input: "5 != null",
+                expected: true,
+            },
+            Test {
+                input: r#"null == "a""#,
+                expected: false,
+            },
+            Test {
+                input: "null == true",
+                expected: false,
+            },
+            Test {
+                input: "null != false",
+                expected: true,
+            },
+            Test {
+                input: "let x = null; x == null",
+                expected: true,
+            },
+            Test {
+                input: "let x = null; null == x",
+                expected: true,
+            },
+            Test {
+                input: "let x = null; x != null",
+                expected: false,
+            },
+            Test {
+                input: "let y = 5; y == null",
+                expected: false,
+            },
+            Test {
+                input: "let y = 5; y != null",
+                expected: true,
+            },
+            Test {
+                input: "let a = null; let b = null; a == b",
+                expected: true,
+            },
+            Test {
+                input: r#"{"a": 1}["b"] == null"#,
+                expected: true,
+            },
+            Test {
+                input: r#"{"a": null}["a"] == null"#,
+                expected: true,
+            },
+            Test {
+                input: r#"{"a": 1}["a"] == null"#,
+                expected: false,
+            },
+            Test {
+                input: "[1, 2, 3][5] == null",
+                expected: true,
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval(test.input).unwrap();
+            testutils::test_boolean_obj(output, test.expected);
+        }
+    }
+
+    #[test]
+    fn test_null_is_falsy() {
+        struct Test {
+            input: &'static str,
+            expected: &'static str,
+        }
+
+        let tests = [
+            Test {
+                input: r#"if (null) { print("t") } else { print("f") }"#,
+                expected: "f",
+            },
+            Test {
+                input: r#"let x = null; if (x == null) { print("missing") }"#,
+                expected: "missing",
+            },
+        ];
+
+        for test in tests.iter() {
+            let output = testutils::test_eval_output(test.input).1;
+            assert_eq!(output, test.expected);
+        }
     }
 }
