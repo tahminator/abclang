@@ -1,7 +1,7 @@
 pub mod builtins;
 pub mod object;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use crate::{
     ast::{
@@ -213,6 +213,7 @@ fn eval_hash_literal(expr: &HashExpression, env: &Env) -> Result<Object, ErrorOb
 fn eval_index_expression(left: &Object, index: &Object) -> Result<Object, ErrorObject> {
     match (left, index) {
         (Object::Array(left), Object::Integer(index)) => eval_array_index_expression(left, index),
+        (Object::String(left), Object::Integer(index)) => eval_string_index_expression(left, index),
         (Object::Hash(left), index) => eval_hash_index_expression(left, index),
         _ => Err(ErrorObject {
             msg: format!("index operator not supported: {}", left.typ()),
@@ -268,6 +269,30 @@ fn eval_hash_index_expression(left: &HashObject, index: &Object) -> Result<Objec
         Some((_, v)) => v.clone(),
         None => Object::NULL,
     })
+}
+
+fn eval_string_index_expression(
+    string_obj: &StringObject,
+    index_obj: &IntegerObject,
+) -> Result<Object, ErrorObject> {
+    Ok(Object::String(StringObject {
+        value: Rc::from(
+            string_obj
+                .clone()
+                .value
+                .chars()
+                .nth(index_obj.value as usize)
+                .ok_or_else(|| ErrorObject {
+                    msg: format!(
+                        "{} is not a valid index on a string with length of {}",
+                        index_obj.value,
+                        string_obj.value.len()
+                    ),
+                })?
+                .to_string()
+                .as_str(),
+        ),
+    }))
 }
 
 fn eval_array_index_expression(
@@ -1944,5 +1969,17 @@ find({1: 10, 2: 20, 3: 30}, 2)";
         testutils::test_float_obj(output.elements.borrow().first().unwrap().clone(), 1.5);
         testutils::test_float_obj(output.elements.borrow().get(1).unwrap().clone(), 4.0);
         testutils::test_float_obj(output.elements.borrow().get(2).unwrap().clone(), 3.25);
+    }
+
+    #[test]
+    fn test_eval_string_index_expression() {
+        let output = testutils::test_eval_output(r#" let s = "xyz"; print(s[0]); "#).1;
+        assert_eq!(output, "x");
+
+        let output = testutils::test_eval_output(r#" let s = "xyz"; print(s[1]); "#).1;
+        assert_eq!(output, "y");
+
+        let output = testutils::test_eval_output(r#" print("xyzyzyzywdq"[9]); "#).1;
+        assert_eq!(output, "d");
     }
 }
