@@ -8,9 +8,10 @@ export const examples: Example[] = [
     name: "strings",
     code: `// strings are supported in abclang, along with string concatenation
 let firstname = "johnny";
+let middlename = "moneybaggs";
 let lastname = "appleseed";
 
-let fullname = firstname + " " + lastname;
+let fullname = firstname + " " + middlename[0] + " " + lastname;
 fullname
 `,
   },
