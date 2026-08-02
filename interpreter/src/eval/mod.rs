@@ -521,6 +521,11 @@ fn eval_infix_expression(op: &str, l: Object, r: Object) -> Result<Object, Error
             },
         ),
         (Object::String(ol), Object::String(or)) => eval_string_infix_expression(op, ol, or),
+        (ol, Object::NULL) if op == "==" => Ok(if ol == Object::NULL {
+            Object::TRUE
+        } else {
+            Object::FALSE
+        }),
         (ol, or) if op == "==" => Ok(if ol == or {
             Object::TRUE
         } else {
