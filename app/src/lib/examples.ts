@@ -326,7 +326,7 @@ let decodeWays = fn(s) {
   let cache = { len(s): 1 }
 
   let dp = fn(i) {
-    if (cache[i]) {
+    if (cache[i] != null) {
       return cache[i];
     }
 
