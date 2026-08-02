@@ -529,6 +529,11 @@ fn eval_string_infix_expression(
         "+" => Ok(Object::String(StringObject {
             value: format!("{}{}", l.value, r.value).into(),
         })),
+        "==" => Ok(if l.value == r.value {
+            Object::TRUE
+        } else {
+            Object::FALSE
+        }),
         _ => Err(ErrorObject {
             msg: format!("unknown operator: {} {op} {}", l.typ(), r.typ()),
         }),
@@ -1981,5 +1986,11 @@ find({1: 10, 2: 20, 3: 30}, 2)";
 
         let output = testutils::test_eval_output(r#" print("xyzyzyzywdq"[9]); "#).1;
         assert_eq!(output, "d");
+    }
+
+    #[test]
+    fn test_eval_string_equality_expression() {
+        let output = testutils::test_eval_output(r#" let s = "xyz"; print(s[0] == "x"); "#).1;
+        assert_eq!(output, "true");
     }
 }
