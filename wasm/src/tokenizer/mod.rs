@@ -17,7 +17,7 @@ pub enum Category {
 fn category_for(typ: TokenType) -> Option<Category> {
     use TokenType::*;
     Some(match typ {
-        Function | Let | True | False | If | Else | Return | For | In => Category::Keyword,
+        Function | Let | True | False | Null | If | Else | Return | For | In => Category::Keyword,
         Int | Float => Category::Number,
         String => Category::String,
         Assign | Plus | Minus | Bang | Asterisk | Slash | Lt | Gt | Eq | NotEq => {

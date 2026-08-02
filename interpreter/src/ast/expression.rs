@@ -36,6 +36,7 @@ expr! {
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     Boolean(BooleanExpression),
+    NullLiteral(NullLiteralExpression),
     If(IfExpression),
     For(ForExpression),
     FnLiteral(FnLiteralExpression),
@@ -136,6 +137,23 @@ impl Node for BooleanExpression {
 impl Display for BooleanExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NullLiteralExpression {
+    pub token: Rc<Token>,
+}
+
+impl Node for NullLiteralExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for NullLiteralExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "null")
     }
 }
 
