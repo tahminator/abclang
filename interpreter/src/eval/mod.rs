@@ -426,6 +426,26 @@ fn eval_for_expression(expr: &ForExpression, env: &Env) -> Result<Object, ErrorO
                 .map(|el| vec![el.clone()])
                 .collect()
         }
+        Object::String(s) => {
+            if expr.idents.len() != 1 {
+                return Err(ErrorObject {
+                    msg: format!(
+                        "for loop over String expected 1 variable, got {}",
+                        expr.idents.len()
+                    ),
+                });
+            }
+
+            s.value
+                .chars()
+                .map(|c| {
+                    // TODO: Update eval to support CharObject
+                    vec![Object::String(StringObject {
+                        value: Rc::from(c.to_string().as_str()),
+                    })]
+                })
+                .collect::<Vec<_>>()
+        }
         Object::Hash(hash) => {
             let with_value = match expr.idents.len() {
                 1 => false,
@@ -1866,10 +1886,6 @@ mod tests {
                 expected_message: "Integer is not iterable",
             },
             Test {
-                input: r#"for x in "abc" { x }"#,
-                expected_message: "String is not iterable",
-            },
-            Test {
                 input: "for a, b in [1, 2] { a }",
                 expected_message: "for loop over Array expects 1 variable, got 2",
             },
@@ -1992,5 +2008,11 @@ find({1: 10, 2: 20, 3: 30}, 2)";
     fn test_eval_string_equality_expression() {
         let output = testutils::test_eval_output(r#" let s = "xyz"; print(s[0] == "x"); "#).1;
         assert_eq!(output, "true");
+    }
+
+    #[test]
+    fn test_eval_string_looping() {
+        let output = testutils::test_eval_output(r#" let s = "xyz"; for c in s { print(c) }; "#).1;
+        assert_eq!(output, "xyz");
     }
 }
