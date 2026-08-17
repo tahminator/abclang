@@ -2,7 +2,7 @@ use phf::phf_map;
 
 use crate::eval::object::{
     ArrayObject, BuiltInFunctionObject, ErrorObject, FloatObject, IntegerObject, Object, Objecter,
-    environment::Env,
+    StringObject, environment::Env,
 };
 
 pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
@@ -45,6 +45,18 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
     "range" => BuiltInFunctionObject {
         function: range,
         function_name: "range",
+    },
+    "str" => BuiltInFunctionObject {
+        function: str,
+        function_name: "str",
+    },
+    "int" => BuiltInFunctionObject {
+        function: int,
+        function_name: "int",
+    },
+    "float" => BuiltInFunctionObject {
+        function: float,
+        function_name: "float",
     }
 };
 
@@ -282,4 +294,53 @@ fn println(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
     env.borrow().write_output(&format!("{text}\n"));
 
     Ok(Object::NULL)
+}
+
+fn str(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [o] => Ok(Object::String(StringObject {
+            value: o.inspect_value().into(),
+        })),
+        _ => Err(ErrorObject {
+            msg: format!("expected 1 argument to str(), received {}", args.len()),
+        }),
+    }
+}
+
+fn int(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Float(o)] => Ok(Object::Integer(IntegerObject {
+            value: unsafe { o.value.to_int_unchecked() },
+        })),
+        [Object::Integer(o)] => Ok(Object::Integer(o.clone())),
+        [Object::Boolean(o)] => Ok(Object::Integer(IntegerObject {
+            value: if o.value { 1 } else { 0 },
+        })),
+        [Object::NULL] => Ok(Object::Integer(IntegerObject { value: 0 })),
+        [o] => Err(ErrorObject {
+            msg: format!("{} cannot be coerced to an int", o.typ()),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!("expected 1 argument to int(), received {}", args.len()),
+        }),
+    }
+}
+
+fn float(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Float(o)] => Ok(Object::Float(o.clone())),
+        [Object::Integer(o)] => Ok(Object::Float(FloatObject {
+            value: o.value as f64,
+        })),
+        [Object::Boolean(o)] => Ok(Object::Float(FloatObject {
+            value: if o.value { 1.0f64 } else { 0.0f64 },
+        })),
+        [Object::NULL] => Ok(Object::Integer(IntegerObject { value: 0 })),
+        [o] => Err(ErrorObject {
+            msg: format!("{} cannot be coerced to an int", o.typ()),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!("expected 1 argument to int(), received {}", args.len()),
+        }),
+    }
 }
