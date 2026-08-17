@@ -47,6 +47,7 @@ pub enum ObjectType {
     Error,
     Function,
     String,
+    Char,
     BuiltIn,
     Array,
     Hash,
@@ -61,6 +62,7 @@ pub enum Object {
     ReturnValue(ReturnValueObject),
     Function(FunctionObject),
     String(StringObject),
+    Char(CharObject),
     BuiltIn(BuiltInFunctionObject),
     Array(ArrayObject),
     Hash(HashObject),
@@ -76,6 +78,7 @@ impl Objecter for Object {
             Object::ReturnValue(o) => o.typ(),
             Object::Function(o) => o.typ(),
             Object::String(o) => o.typ(),
+            Object::Char(o) => o.typ(),
             Object::BuiltIn(o) => o.typ(),
             Object::Array(o) => o.typ(),
             Object::Hash(o) => o.typ(),
@@ -91,6 +94,7 @@ impl Objecter for Object {
             Object::ReturnValue(o) => o.inspect_value(),
             Object::Function(o) => o.inspect_value(),
             Object::String(o) => o.inspect_value(),
+            Object::Char(o) => o.inspect_value(),
             Object::BuiltIn(o) => o.inspect_value(),
             Object::Array(o) => o.inspect_value(),
             Object::Hash(o) => o.inspect_value(),
@@ -108,6 +112,7 @@ impl ObjectHasher for Object {
             Object::ReturnValue(o) => o.hash_key(),
             Object::Function(o) => o.hash_key(),
             Object::String(o) => o.hash_key(),
+            Object::Char(o) => o.hash_key(),
             Object::BuiltIn(o) => o.hash_key(),
             Object::Array(o) => o.hash_key(),
             Object::Hash(o) => o.hash_key(),
@@ -297,6 +302,34 @@ impl Objecter for StringObject {
 }
 
 impl ObjectHasher for StringObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        let mut hasher = DefaultHasher::new();
+        self.value.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        Some(HashKey {
+            typ: self.typ(),
+            value: hash,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CharObject {
+    pub value: Rc<char>,
+}
+
+impl Objecter for CharObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Char
+    }
+
+    fn inspect_value(&self) -> String {
+        self.value.to_string()
+    }
+}
+
+impl ObjectHasher for CharObject {
     fn hash_key(&self) -> Option<HashKey> {
         let mut hasher = DefaultHasher::new();
         self.value.hash(&mut hasher);

@@ -181,6 +181,10 @@ impl Lexer {
                 literal: self.read_string()?.into(),
                 typ: TokenType::String,
             },
+            b'\'' => Token {
+                literal: self.read_char_value()?.into(),
+                typ: TokenType::Char,
+            },
             b'[' => Token {
                 literal: "[".into(),
                 typ: TokenType::LBracket,
@@ -230,6 +234,30 @@ impl Lexer {
         }
 
         self.input[pos..self.pos].as_str()
+    }
+
+    fn read_char_value(&mut self) -> Result<&str, LexerError> {
+        self.read_char();
+        let pos = self.pos;
+
+        match self.peek_char() {
+            Some(c) if c != b'\'' => {
+                return Err(LexerError::FailedToParseCharError(
+                    "char does not have a closing \'".into(),
+                ));
+            }
+            Some(_) => Ok::<_, LexerError>(()),
+            None => {
+                return Err(LexerError::FailedToParseCharError(
+                    "char does not have a closing \'".into(),
+                ));
+            }
+        }?;
+
+        self.read_char();
+
+        // TODO: figure out how to make this more efficient
+        self.input[pos..pos + 1].as_str()
     }
 
     fn skip_comment(&mut self) {

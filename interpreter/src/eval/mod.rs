@@ -11,9 +11,9 @@ use crate::{
     eval::{
         builtins::BUILTINS,
         object::{
-            ArrayObject, ErrorObject, FloatObject, FunctionObject, HashObject, IntegerObject,
-            NullObject, Object, ObjectHasher, ObjectType, Objecter, ReturnValueObject,
-            StringObject,
+            ArrayObject, CharObject, ErrorObject, FloatObject, FunctionObject, HashObject,
+            IntegerObject, NullObject, Object, ObjectHasher, ObjectType, Objecter,
+            ReturnValueObject, StringObject,
             environment::{Env, Environment},
         },
     },
@@ -178,6 +178,9 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
             eval_infix_expression(expr.op.as_ref(), l, r)
         }
         Expression::String(expr) => Ok(Object::String(StringObject {
+            value: expr.value.clone(),
+        })),
+        Expression::Char(expr) => Ok(Object::Char(CharObject {
             value: expr.value.clone(),
         })),
         _ => Ok(Object::NULL),
