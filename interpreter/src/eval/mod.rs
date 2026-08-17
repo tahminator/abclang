@@ -452,12 +452,7 @@ fn eval_for_expression(expr: &ForExpression, env: &Env) -> Result<Object, ErrorO
 
             s.value
                 .chars()
-                .map(|c| {
-                    // TODO: Update eval to support CharObject
-                    vec![Object::String(StringObject {
-                        value: Rc::from(c.to_string().as_str()),
-                    })]
-                })
+                .map(|c| vec![Object::Char(CharObject { value: Rc::from(c) })])
                 .collect::<Vec<_>>()
         }
         Object::Hash(hash) => {
