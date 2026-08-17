@@ -42,6 +42,7 @@ expr! {
     FnLiteral(FnLiteralExpression),
     Call(CallExpression),
     String(StringExpression),
+    Char(CharExpression),
     Array(ArrayExpression),
     Index(IndexExpression),
     Hash(HashExpression),
@@ -310,6 +311,24 @@ impl Node for StringExpression {
 }
 
 impl Display for StringExpression {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.token_literal())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CharExpression {
+    pub token: Rc<Token>,
+    pub value: Rc<char>,
+}
+
+impl Node for CharExpression {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for CharExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.token_literal())
     }

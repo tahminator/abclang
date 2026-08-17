@@ -21,7 +21,7 @@ fn category_for(typ: TokenType) -> Option<Category> {
             Category::Keyword
         }
         Int | Float => Category::Number,
-        String => Category::String,
+        String | Char => Category::String,
         Assign | Plus | Minus | Bang | Asterisk | Slash | Lt | Gt | Eq | NotEq => {
             Category::Operator
         }

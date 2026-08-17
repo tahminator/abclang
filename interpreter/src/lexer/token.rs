@@ -63,6 +63,7 @@ pub enum TokenType {
     In,
 
     String,
+    Char,
 
     LBracket,
     RBracket,
@@ -108,6 +109,7 @@ impl fmt::Display for TokenType {
             TokenType::Eq => "==",
             TokenType::NotEq => "!=",
             TokenType::String => "String",
+            TokenType::Char => "Char",
             TokenType::LBracket => "[",
             TokenType::RBracket => "]",
             TokenType::Colon => ":",

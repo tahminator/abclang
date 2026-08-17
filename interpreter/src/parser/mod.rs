@@ -6,10 +6,11 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     ast::{
         self, ArrayExpression, AssignStatement, BlockStatement, BooleanExpression, CallExpression,
-        Expression, ExpressionStatement, FloatLiteralExpression, FnLiteralExpression,
-        ForExpression, HashExpression, IdentifierExpression, IfExpression, IndexExpression,
-        InfixExpression, IntegerLiteralExpression, LetStatement, NullLiteralExpression,
-        PrefixExpression, Program, ReturnStatement, Statement, StringExpression,
+        CharExpression, Expression, ExpressionStatement, FloatLiteralExpression,
+        FnLiteralExpression, ForExpression, HashExpression, IdentifierExpression, IfExpression,
+        IndexExpression, InfixExpression, IntegerLiteralExpression, LetStatement,
+        NullLiteralExpression, PrefixExpression, Program, ReturnStatement, Statement,
+        StringExpression,
     },
     lexer::{Lexer, Token, TokenType},
     parser::{error::ParserError, precedence::Precedence},
@@ -52,6 +53,7 @@ impl Parser {
         parser.register_prefix(TokenType::For, Parser::parse_for_expression);
         parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
         parser.register_prefix(TokenType::String, Parser::parse_string_literal);
+        parser.register_prefix(TokenType::Char, Parser::parse_char_literal);
         parser.register_prefix(TokenType::LBracket, Parser::parse_array_literal);
         parser.register_prefix(TokenType::LBrace, Parser::parse_hash_literal);
 
@@ -88,6 +90,13 @@ impl Parser {
         Some(Expression::String(StringExpression {
             token: self.cur_token.clone(),
             value: self.cur_token.literal.clone(),
+        }))
+    }
+
+    fn parse_char_literal(&mut self) -> Option<Expression> {
+        Some(Expression::Char(CharExpression {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.chars().nth(0)?.into(),
         }))
     }
 
