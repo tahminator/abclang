@@ -57,7 +57,11 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
     "float" => BuiltInFunctionObject {
         function: float,
         function_name: "float",
-    }
+    },
+    "type" => BuiltInFunctionObject {
+        function: _type,
+        function_name: "type",
+    },
 };
 
 fn len(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
@@ -341,6 +345,17 @@ fn float(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
         }),
         _ => Err(ErrorObject {
             msg: format!("expected 1 argument to int(), received {}", args.len()),
+        }),
+    }
+}
+
+fn _type(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [o] => Ok(Object::String(StringObject {
+            value: o.typ().to_string().to_ascii_lowercase().into(),
+        })),
+        _ => Err(ErrorObject {
+            msg: format!("expected 1 argument to type(), received {}", args.len()),
         }),
     }
 }
