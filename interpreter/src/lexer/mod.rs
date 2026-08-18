@@ -115,10 +115,20 @@ impl Lexer {
                 literal: "*".into(),
                 typ: TokenType::Asterisk,
             },
-            b'<' => Token {
-                literal: "<".into(),
-                typ: TokenType::Lt,
-            },
+            b'<' => {
+                if let Some(b'=') = self.peek_char() {
+                    self.read_char();
+                    Token {
+                        literal: "<=".into(),
+                        typ: TokenType::Lte,
+                    }
+                } else {
+                    Token {
+                        literal: "<".into(),
+                        typ: TokenType::Lt,
+                    }
+                }
+            }
             b'&' => {
                 if let Some(b'&') = self.peek_char() {
                     self.read_char();
@@ -149,10 +159,20 @@ impl Lexer {
                     }
                 }
             }
-            b'>' => Token {
-                literal: ">".into(),
-                typ: TokenType::Gt,
-            },
+            b'>' => {
+                if let Some(b'=') = self.peek_char() {
+                    self.read_char();
+                    Token {
+                        literal: ">=".into(),
+                        typ: TokenType::Gte,
+                    }
+                } else {
+                    Token {
+                        literal: ">".into(),
+                        typ: TokenType::Gt,
+                    }
+                }
+            }
             b',' => Token {
                 literal: ",".into(),
                 typ: TokenType::Comma,

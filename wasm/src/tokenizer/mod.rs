@@ -22,7 +22,7 @@ fn category_for(typ: TokenType) -> Option<Category> {
         }
         Int | Float => Category::Number,
         String | Char => Category::String,
-        Assign | Plus | Minus | Bang | Asterisk | Slash | Lt | Gt | Eq | NotEq => {
+        Assign | Plus | Minus | Bang | Asterisk | Slash | Lt | Gt | Lte | Gte | Eq | NotEq => {
             Category::Operator
         }
         Comma | Semicolon | LParen | RParen | LBrace | RBrace | LBracket | RBracket | Colon

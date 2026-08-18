@@ -67,7 +67,9 @@ impl Parser {
         parser.register_infix(TokenType::Eq, infix_func);
         parser.register_infix(TokenType::NotEq, infix_func);
         parser.register_infix(TokenType::Lt, infix_func);
+        parser.register_infix(TokenType::Lte, infix_func);
         parser.register_infix(TokenType::Gt, infix_func);
+        parser.register_infix(TokenType::Gte, infix_func);
 
         parser.register_infix(TokenType::LParen, Parser::parse_call_expression);
         parser.register_infix(TokenType::LBracket, Parser::parse_index_expression);

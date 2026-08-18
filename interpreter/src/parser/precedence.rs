@@ -6,7 +6,7 @@ pub enum Precedence {
     Or,          // ||
     And,         // &&
     Equals,      // == or !=
-    LessGreater, // > or <
+    LessGreater, // > or < or >= or <=
     Sum,         // + or -
     Product,     // * or /
     Prefix,      // -X or !X
@@ -18,7 +18,9 @@ impl Precedence {
     pub fn lookup_precedence(tok: TokenType) -> Precedence {
         match tok {
             TokenType::Eq | TokenType::NotEq => Precedence::Equals,
-            TokenType::Lt | TokenType::Gt => Precedence::LessGreater,
+            TokenType::Lt | TokenType::Gt | TokenType::Lte | TokenType::Gte => {
+                Precedence::LessGreater
+            }
             TokenType::Or => Precedence::Or,
             TokenType::And => Precedence::And,
             TokenType::Plus | TokenType::Minus => Precedence::Sum,
