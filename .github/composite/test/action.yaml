@@ -1,0 +1,9 @@
+name: Run & upload tests
+description: Run full test suite and upload to Sonar
+
+runs:
+  using: composite
+  steps:
+    - name: Run & upload tests
+      shell: bash
+      run: bun run .github/scripts/src/test
