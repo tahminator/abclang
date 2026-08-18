@@ -36,6 +36,10 @@ impl Environment {
         std::mem::take(&mut self.output.borrow_mut())
     }
 
+    pub fn get_in_scope(&self, name: &str) -> Option<Object> {
+        self.store.get(name).cloned()
+    }
+
     pub fn get(&self, name: &str) -> Option<Object> {
         match self.store.get(name) {
             Some(v) => Some(v.clone()),

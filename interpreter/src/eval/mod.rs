@@ -65,9 +65,23 @@ fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
                 env,
             )?;
 
-            env.borrow_mut().set(stmt.name.value.to_string(), val);
+            let name = stmt.name.value.clone();
 
-            Ok(Object::NULL)
+            let mut env = env.try_borrow_mut().map_err(|e| ErrorObject {
+                msg: format!("internal eval error: could not borrow env due to: {e:#?}"),
+            })?;
+
+            match env.get_in_scope(&name) {
+                Some(_) => Err(ErrorObject {
+                    msg: format!(
+                        "{name} already exists, you may reassign it's value instead by removing the `let` keyword"
+                    ),
+                }),
+                None => {
+                    env.set(name.to_string(), val);
+                    Ok(Object::NULL)
+                }
+            }
         }
         Statement::Assign(stmt) => {
             let val = eval_expression(&stmt.value, env)?;
