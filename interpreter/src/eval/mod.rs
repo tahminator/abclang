@@ -599,8 +599,22 @@ fn eval_integer_infix_expression(
                 Ok(Object::FALSE)
             }
         }
+        "<=" => {
+            if lval <= rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
         ">" => {
             if lval > rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
+        ">=" => {
+            if lval >= rval {
                 Ok(Object::TRUE)
             } else {
                 Ok(Object::FALSE)
@@ -646,8 +660,22 @@ fn eval_float_infix_expression(
                 Ok(Object::FALSE)
             }
         }
+        "<=" => {
+            if lval <= rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
         ">" => {
             if lval > rval {
+                Ok(Object::TRUE)
+            } else {
+                Ok(Object::FALSE)
+            }
+        }
+        ">=" => {
+            if lval >= rval {
                 Ok(Object::TRUE)
             } else {
                 Ok(Object::FALSE)
