@@ -797,6 +797,20 @@ mod tests {
         Case { name: "bool_group_gt_eq_true", input: "(1 > 2) == true", output: "false" },
         Case { name: "bool_group_gt_eq_false", input: "(1 > 2) == false", output: "true" },
 
+        // lte_gte
+        Case { name: "int_lte_less", input: "1 <= 2", output: "true" },
+        Case { name: "int_lte_equal", input: "2 <= 2", output: "true" },
+        Case { name: "int_lte_greater", input: "3 <= 2", output: "false" },
+        Case { name: "int_gte_less", input: "1 >= 2", output: "false" },
+        Case { name: "int_gte_equal", input: "2 >= 2", output: "true" },
+        Case { name: "int_gte_greater", input: "3 >= 2", output: "true" },
+        Case { name: "float_lte_equal", input: "1.5 <= 1.5", output: "true" },
+        Case { name: "float_lte_false", input: "1.5 <= 1.4", output: "false" },
+        Case { name: "float_gte_equal", input: "1.5 >= 1.5", output: "true" },
+        Case { name: "float_gte_false", input: "1.4 >= 1.5", output: "false" },
+        Case { name: "mixed_lte_int_to_float", input: "1 <= 1.5", output: "true" },
+        Case { name: "mixed_gte_float_to_int", input: "1.5 >= 1", output: "true" },
+
         // bang
         Case { name: "bang_true", input: "!true", output: "false" },
         Case { name: "bang_false", input: "!false", output: "true" },
@@ -892,6 +906,16 @@ mod tests {
         Case { name: "let_with_expr", input: "let a = 5 * 5; a;", output: "25" },
         Case { name: "let_from_another", input: "let a = 5; let b = a; b;", output: "5" },
         Case { name: "let_chained", input: "let a = 5; let b = a; let c = a + b + 5; c;", output: "15" },
+        Case {
+            name: "err_let_redeclaration",
+            input: "let a = 5; let a = 10; a",
+            output: "ERROR: a already exists, you may reassign it's value instead by removing the `let` keyword",
+        },
+        Case {
+            name: "let_redeclare_in_nested_scope_is_fine",
+            input: "let a = 5; let f = fn() { let a = 10; a }; f() + a",
+            output: "15",
+        },
 
         // reassignment
         Case { name: "reassign_literal", input: "let a = 5; a = 10; a", output: "10" },
@@ -953,8 +977,21 @@ mod tests {
         Case { name: "string_index_first_char", input: r#" let s = "xyz"; print(s[0]); "#, output: "x" },
         Case { name: "string_index_second_char", input: r#" let s = "xyz"; print(s[1]); "#, output: "y" },
         Case { name: "string_index_offset", input: r#" print("xyzyzyzywdq"[9]); "#, output: "d" },
-        Case { name: "string_index_equality", input: r#" let s = "xyz"; print(s[0] == "x"); "#, output: "true" },
+        Case { name: "string_index_char_eq_char_literal", input: r#" let s = "xyz"; print(s[0] == 'x'); "#, output: "true" },
+        Case { name: "string_index_char_neq_string_literal", input: r#" let s = "xyz"; print(s[0] == "x"); "#, output: "false" },
+        Case { name: "string_index_char_coerced_to_str_eq", input: r#" let s = "xyz"; print(str(s[0]) == "x"); "#, output: "true" },
         Case { name: "string_looping", input: r#" for c in "xyz" { print(c) }; "#, output: "xyz" },
+
+        // chars
+        Case { name: "char_literal_print", input: "print('a')", output: "a" },
+        Case { name: "char_type_via_string_loop", input: r#"for c in "xy" { println(type(c)) }"#, output: "char\nchar\n" },
+        Case { name: "char_type_via_string_index", input: r#"print(type("xy"[0]))"#, output: "char" },
+        Case { name: "char_eq_char_true", input: "'a' == 'a'", output: "true" },
+        Case { name: "char_eq_char_false", input: "'a' == 'b'", output: "false" },
+        Case { name: "char_neq_char_true", input: "'a' != 'b'", output: "true" },
+        Case { name: "char_neq_string_literal", input: r#"'a' == "a""#, output: "false" },
+        Case { name: "string_literal_neq_char", input: r#""a" == 'a'"#, output: "false" },
+        Case { name: "char_coerced_str_eq_string", input: r#"str('a') == "a""#, output: "true" },
 
         // builtins
         Case { name: "len_empty_string", input: r#"len("")"#, output: "0" },
@@ -966,6 +1003,44 @@ mod tests {
         Case { name: "max_basic", input: "max(1, 2)", output: "2" },
         Case { name: "min_reversed", input: "min(1, 103)", output: "1" },
         Case { name: "max_reversed", input: "max(103, 1)", output: "103" },
+
+        // type_builtin
+        Case { name: "type_integer", input: "type(5)", output: "integer" },
+        Case { name: "type_float", input: "type(1.5)", output: "float" },
+        Case { name: "type_boolean", input: "type(true)", output: "boolean" },
+        Case { name: "type_string", input: r#"type("hi")"#, output: "string" },
+        Case { name: "type_char", input: "type('c')", output: "char" },
+        Case { name: "type_null", input: "type(null)", output: "null" },
+        Case { name: "type_array", input: "type([1, 2])", output: "array" },
+        Case { name: "type_hash", input: r#"type({"a": 1})"#, output: "hash" },
+        Case { name: "type_function", input: "type(fn(x) { x })", output: "function" },
+        Case { name: "err_type_wrong_arity", input: "type(1, 2)", output: "ERROR: expected 1 argument to type(), received 2" },
+
+        // str_builtin
+        Case { name: "str_from_int", input: "print(str(5))", output: "5" },
+        Case { name: "str_from_float", input: "print(str(1.5))", output: "1.5" },
+        Case { name: "str_from_bool", input: "print(str(true))", output: "true" },
+        Case { name: "str_from_char", input: "print(str('c'))", output: "c" },
+        Case { name: "str_from_string_eq", input: r#"print(str("hi") == "hi")"#, output: "true" },
+        Case { name: "err_str_wrong_arity", input: "str(1, 2)", output: "ERROR: expected 1 argument to str(), received 2" },
+
+        // int_builtin
+        Case { name: "int_from_int", input: "int(5)", output: "5" },
+        Case { name: "int_from_float_truncates", input: "int(3.9)", output: "3" },
+        Case { name: "int_from_negative_float_truncates", input: "int(-3.9)", output: "-3" },
+        Case { name: "int_from_true", input: "int(true)", output: "1" },
+        Case { name: "int_from_false", input: "int(false)", output: "0" },
+        Case { name: "int_from_null", input: "int(null)", output: "0" },
+        Case { name: "err_int_from_string", input: r#"int("5")"#, output: "ERROR: String cannot be coerced to an int" },
+        Case { name: "err_int_wrong_arity", input: "int(1, 2)", output: "ERROR: expected 1 argument to int(), received 2" },
+
+        // float_builtin
+        Case { name: "float_from_int", input: "float(5)", output: "5" },
+        Case { name: "float_from_float", input: "float(1.5)", output: "1.5" },
+        Case { name: "float_from_true", input: "float(true)", output: "1" },
+        Case { name: "float_from_false", input: "float(false)", output: "0" },
+        Case { name: "err_float_from_string", input: r#"float("5")"#, output: "ERROR: String cannot be coerced to an int" },
+        Case { name: "err_float_wrong_arity", input: "float(1, 2)", output: "ERROR: expected 1 argument to int(), received 2" },
 
         // arrays
         Case { name: "array_literal_with_exprs", input: "[1, 2 * 2, 3 + 3]", output: "[1, 4, 6]" },
@@ -1118,6 +1193,172 @@ find({1: 10, 2: 20, 3: 30}, 2)"#,
             name: "null_eq_check_in_if",
             input: r#"let x = null; if (x == null) { print("missing") }"#,
             output: "missing",
+        },
+
+        // decode_ways_regression
+        Case {
+            name: "decode_ways_11106",
+            input: r#"
+let s = "11106";
+let decodeWays = fn(s) {
+  let cache = { len(s): 1 }
+
+  let dp = fn(i) {
+    if (cache[i] != null) {
+      return cache[i];
+    }
+
+    if (s[i] == '0') {
+      return 0;
+    }
+
+    let res = dp(i + 1);
+    if (i + 1 < len(s)) {
+      if (s[i] == '1') {
+        res = res + dp(i + 2);
+      } else {
+        if (s[i] == '2') {
+          for n in "0123456" {
+            if (s[i + 1] == n) {
+              res = res + dp(i + 2);
+            }
+          }
+        }
+      }
+    }
+    cache[i] = res;
+    return res;
+  }
+
+  return dp(0);
+}
+
+decodeWays(s)
+"#,
+            output: "2",
+        },
+        Case {
+            name: "decode_ways_12",
+            input: r#"
+let s = "12";
+let decodeWays = fn(s) {
+  let cache = { len(s): 1 }
+
+  let dp = fn(i) {
+    if (cache[i] != null) {
+      return cache[i];
+    }
+
+    if (s[i] == '0') {
+      return 0;
+    }
+
+    let res = dp(i + 1);
+    if (i + 1 < len(s)) {
+      if (s[i] == '1') {
+        res = res + dp(i + 2);
+      } else {
+        if (s[i] == '2') {
+          for n in "0123456" {
+            if (s[i + 1] == n) {
+              res = res + dp(i + 2);
+            }
+          }
+        }
+      }
+    }
+    cache[i] = res;
+    return res;
+  }
+
+  return dp(0);
+}
+
+decodeWays(s)
+"#,
+            output: "2",
+        },
+        Case {
+            name: "decode_ways_226",
+            input: r#"
+let s = "226";
+let decodeWays = fn(s) {
+  let cache = { len(s): 1 }
+
+  let dp = fn(i) {
+    if (cache[i] != null) {
+      return cache[i];
+    }
+
+    if (s[i] == '0') {
+      return 0;
+    }
+
+    let res = dp(i + 1);
+    if (i + 1 < len(s)) {
+      if (s[i] == '1') {
+        res = res + dp(i + 2);
+      } else {
+        if (s[i] == '2') {
+          for n in "0123456" {
+            if (s[i + 1] == n) {
+              res = res + dp(i + 2);
+            }
+          }
+        }
+      }
+    }
+    cache[i] = res;
+    return res;
+  }
+
+  return dp(0);
+}
+
+decodeWays(s)
+"#,
+            output: "3",
+        },
+        Case {
+            name: "decode_ways_06",
+            input: r#"
+let s = "06";
+let decodeWays = fn(s) {
+  let cache = { len(s): 1 }
+
+  let dp = fn(i) {
+    if (cache[i] != null) {
+      return cache[i];
+    }
+
+    if (s[i] == '0') {
+      return 0;
+    }
+
+    let res = dp(i + 1);
+    if (i + 1 < len(s)) {
+      if (s[i] == '1') {
+        res = res + dp(i + 2);
+      } else {
+        if (s[i] == '2') {
+          for n in "0123456" {
+            if (s[i + 1] == n) {
+              res = res + dp(i + 2);
+            }
+          }
+        }
+      }
+    }
+    cache[i] = res;
+    return res;
+  }
+
+  return dp(0);
+}
+
+decodeWays(s)
+"#,
+            output: "0",
         },
     ];
 
