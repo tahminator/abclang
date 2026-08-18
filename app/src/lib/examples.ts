@@ -330,16 +330,16 @@ let decodeWays = fn(s) {
       return cache[i];
     }
 
-    if (s[i] == "0") {
+    if (s[i] == '0') {
       return 0;
     }
 
     let res = dp(i + 1);
     if (i + 1 < len(s)) {
-      if (s[i] == "1") {
+      if (s[i] == '1') {
         res = res + dp(i + 2);
       } else {
-        if (s[i] == "2") {
+        if (s[i] == '2') {
           for n in "0123456" {
             if (s[i + 1] == n) {
               res = res + dp(i + 2);

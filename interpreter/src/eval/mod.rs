@@ -303,7 +303,7 @@ fn eval_string_index_expression(
     string_obj: &StringObject,
     index_obj: &IntegerObject,
 ) -> Result<Object, ErrorObject> {
-    Ok(Object::String(StringObject {
+    Ok(Object::Char(CharObject {
         value: Rc::from(
             string_obj
                 .clone()
@@ -316,9 +316,7 @@ fn eval_string_index_expression(
                         index_obj.value,
                         string_obj.value.len()
                     ),
-                })?
-                .to_string()
-                .as_str(),
+                })?,
         ),
     }))
 }
