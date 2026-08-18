@@ -27,6 +27,7 @@ jobs:
       - name: Setup pipeline
         uses: ./.github/composite/setup
         with:
+          SECRETS: ${{ toJSON(secrets) }}
           INSTALL_JUST: true
 
       - name: Setup pnpm
@@ -34,13 +35,14 @@ jobs:
         with:
           version: 11.11.0
 
-      - name: Install cargo-hack from crates.io
+      - name: Install cargo-tarpaulin
         uses: baptiste0928/cargo-install@v3
         with:
-          crate: cargo-hack
+          crate: cargo-tarpaulin
+          version: "^0.37"
 
       - name: Run Tests
-        run: just test
+        uses: ./.github/composite/test
 
   buildImage:
     name: Build Docker image and deploy to Docker Hub
