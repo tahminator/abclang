@@ -19,6 +19,7 @@ macro_rules! expr {
             $($variant($ty),)*
         }
 
+        #[cfg(not(tarpaulin_include))]
         impl Display for Expression {
             fn fmt(&self, f: &mut Formatter) -> FmtResult {
                 match self {
@@ -60,6 +61,7 @@ impl Node for IdentifierExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for IdentifierExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.value)
@@ -78,6 +80,7 @@ impl Node for IntegerLiteralExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for IntegerLiteralExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.value)
@@ -97,6 +100,7 @@ impl Node for PrefixExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for PrefixExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "({}{})", self.op, self.right)
@@ -117,6 +121,7 @@ impl Node for InfixExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for InfixExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "({} {} {})", self.left, self.op, self.right)
@@ -135,6 +140,7 @@ impl Node for BooleanExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for BooleanExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.value)
@@ -152,6 +158,7 @@ impl Node for NullLiteralExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for NullLiteralExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "null")
@@ -172,6 +179,7 @@ impl Node for IfExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for IfExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let stringify = |block: &BlockStatement| {
@@ -216,6 +224,7 @@ impl Node for ForExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for ForExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
@@ -248,6 +257,7 @@ impl Node for FnLiteralExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for FnLiteralExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
@@ -283,6 +293,7 @@ impl Node for CallExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for CallExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
@@ -310,6 +321,7 @@ impl Node for StringExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for StringExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.token_literal())
@@ -328,6 +340,7 @@ impl Node for CharExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for CharExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.token_literal())
@@ -346,6 +359,7 @@ impl Node for ArrayExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for ArrayExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
@@ -373,6 +387,7 @@ impl Node for IndexExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for IndexExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "({}[{}])", self.left, self.index,)
@@ -422,6 +437,7 @@ impl Node for HashExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for HashExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
@@ -448,6 +464,7 @@ impl Node for FloatLiteralExpression {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for FloatLiteralExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.value)
