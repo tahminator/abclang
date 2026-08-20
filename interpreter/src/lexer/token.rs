@@ -37,6 +37,8 @@ pub enum TokenType {
 
     Lt,
     Gt,
+    And,
+    Or,
 
     Eq,
     NotEq,
@@ -85,6 +87,8 @@ impl fmt::Display for TokenType {
             TokenType::Slash => "/",
             TokenType::Lt => "<",
             TokenType::Gt => ">",
+            TokenType::And => "&&",
+            TokenType::Or => "||",
             TokenType::Comma => ",",
             TokenType::Semicolon => ";",
             TokenType::LParen => "(",

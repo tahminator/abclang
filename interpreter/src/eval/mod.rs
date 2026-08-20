@@ -162,6 +162,16 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
 
             eval_index_expression(&left, &index)
         }
+        Expression::Infix(infix) if infix.op.as_ref() == "&&" || infix.op.as_ref() == "||" => {
+            let left = eval_expression(&infix.left, env)?;
+            match infix.op.as_ref() {
+                "&&" if !is_truthy(&left) => Ok(left),
+                "&&" => eval_expression(&infix.right, env),
+                "||" if is_truthy(&left) => Ok(left),
+                "||" => eval_expression(&infix.right, env),
+                _ => unreachable!(),
+            }
+        }
         Expression::Infix(expr) => {
             let l = eval_expression(&expr.left, env)?;
             let r = eval_expression(&expr.right, env)?;
@@ -495,7 +505,7 @@ fn eval_for_expression(expr: &ForExpression, env: &Env) -> Result<Object, ErrorO
 }
 
 fn is_truthy(obj: &Object) -> bool {
-    match *obj {
+    match *(obj) {
         Object::NULL => false,
         Object::TRUE => true,
         Object::FALSE => false,
