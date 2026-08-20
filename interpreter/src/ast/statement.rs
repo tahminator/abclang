@@ -17,6 +17,7 @@ pub enum Statement {
     Block(BlockStatement),
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for Statement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let mut w = |x: &dyn Display| write!(f, "{x}");
@@ -56,6 +57,7 @@ impl Node for LetStatement {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for LetStatement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
@@ -85,6 +87,7 @@ impl Node for AssignStatement {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for AssignStatement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{} = {};", self.target, self.value)
@@ -103,6 +106,7 @@ impl Node for ReturnStatement {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for ReturnStatement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
@@ -129,6 +133,7 @@ impl Node for ExpressionStatement {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for ExpressionStatement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.expr)
@@ -147,6 +152,7 @@ impl Node for BlockStatement {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for BlockStatement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
