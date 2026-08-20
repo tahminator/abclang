@@ -352,7 +352,7 @@ fn float(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
 fn _type(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [o] => Ok(Object::String(StringObject {
-            value: o.typ().to_string().to_ascii_lowercase().into(),
+            value: o.typ().to_string().into(),
         })),
         _ => Err(ErrorObject {
             msg: format!("expected 1 argument to type(), received {}", args.len()),
