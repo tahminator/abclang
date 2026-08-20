@@ -3,4 +3,4 @@
  * for test exclusion usages.
  */
 
-export const exclusions = ["app/**/*.ts", "app/**/*.tsx"];
+export const exclusions = ["app/**/*.ts", "app/**/*.tsx", "repl/**", "wasm/**", "*"];

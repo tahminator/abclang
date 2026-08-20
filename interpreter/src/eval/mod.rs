@@ -1360,6 +1360,73 @@ decodeWays(s)
 "#,
             output: "0",
         },
+
+        // parser_errors
+        Case {
+            name: "err_parse_let_missing_ident",
+            input: "let 5 = 1;",
+            output: "parser has 3 error(s):\n\texpected next token to be IDENT, got INT instead\n\tinvalid assignment target: 5, expected an identifier or index expression\n\tno prefix parse function for = found",
+        },
+        Case {
+            name: "err_parse_let_missing_assign",
+            input: "let x 5;",
+            output: "parser has 1 error(s):\n\texpected next token to be =, got INT instead",
+        },
+        Case {
+            name: "err_parse_fn_missing_paren",
+            input: "fn x { x }",
+            output: "parser has 3 error(s):\n\texpected next token to be (, got IDENT instead\n\texpected next token to be :, got } instead\n\tno prefix parse function for } found",
+        },
+        Case {
+            name: "err_parse_if_missing_paren",
+            input: "if true { 1 }",
+            output: "parser has 3 error(s):\n\texpected next token to be (, got true instead\n\texpected next token to be :, got } instead\n\tno prefix parse function for } found",
+        },
+        Case {
+            name: "err_parse_hash_missing_colon",
+            input: r#"{"a" 1}"#,
+            output: "parser has 2 error(s):\n\texpected next token to be :, got INT instead\n\tno prefix parse function for } found",
+        },
+        Case {
+            name: "err_parse_for_missing_in",
+            input: "for x [1,2] { x }",
+            output: "parser has 3 error(s):\n\texpected next token to be in, got [ instead\n\texpected next token to be :, got } instead\n\tno prefix parse function for } found",
+        },
+        Case {
+            name: "err_parse_array_missing_bracket",
+            input: "[1, 2",
+            output: "parser has 1 error(s):\n\texpected next token to be ], got EOF instead",
+        },
+        Case {
+            name: "err_parse_no_prefix_rparen",
+            input: ")",
+            output: "parser has 1 error(s):\n\tno prefix parse function for ) found",
+        },
+        Case {
+            name: "err_parse_no_prefix_semicolon",
+            input: ";",
+            output: "parser has 1 error(s):\n\tno prefix parse function for ; found",
+        },
+        Case {
+            name: "err_parse_invalid_assignment_target",
+            input: "5 = 10",
+            output: "parser has 2 error(s):\n\tinvalid assignment target: 5, expected an identifier or index expression\n\tno prefix parse function for = found",
+        },
+        Case {
+            name: "err_lexer_char_too_long",
+            input: "'ab'",
+            output: "parser has 1 error(s):\n\tlexer error encountered: failed to parse character due to: char does not have a closing '",
+        },
+        Case {
+            name: "err_lexer_float_missing_digits",
+            input: "5.",
+            output: "parser has 1 error(s):\n\tlexer error encountered: failed to find digits after period on a float",
+        },
+        Case {
+            name: "err_parse_multiple_statements_accumulate",
+            input: "let 5 = 1; let 6 = 2;",
+            output: "parser has 6 error(s):\n\texpected next token to be IDENT, got INT instead\n\tinvalid assignment target: 5, expected an identifier or index expression\n\tno prefix parse function for = found\n\texpected next token to be IDENT, got INT instead\n\tinvalid assignment target: 6, expected an identifier or index expression\n\tno prefix parse function for = found",
+        },
     ];
 
     #[test]
