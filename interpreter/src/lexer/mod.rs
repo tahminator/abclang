@@ -119,6 +119,36 @@ impl Lexer {
                 literal: "<".into(),
                 typ: TokenType::Lt,
             },
+            b'&' => {
+                if let Some(b'&') = self.peek_char() {
+                    self.read_char();
+                    Token {
+                        literal: "&&".into(),
+                        typ: TokenType::And,
+                    }
+                } else {
+                    // TODO: update to support bit shifting
+                    Token {
+                        literal: EMPTY.into(),
+                        typ: TokenType::Illegal,
+                    }
+                }
+            }
+            b'|' => {
+                if let Some(b'|') = self.peek_char() {
+                    self.read_char();
+                    Token {
+                        literal: "||".into(),
+                        typ: TokenType::Or,
+                    }
+                } else {
+                    // TODO: update to support bit shifting
+                    Token {
+                        literal: EMPTY.into(),
+                        typ: TokenType::Illegal,
+                    }
+                }
+            }
             b'>' => Token {
                 literal: ">".into(),
                 typ: TokenType::Gt,

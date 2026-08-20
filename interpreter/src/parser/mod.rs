@@ -60,6 +60,8 @@ impl Parser {
         parser.register_infix(TokenType::Minus, infix_func);
         parser.register_infix(TokenType::Slash, infix_func);
         parser.register_infix(TokenType::Asterisk, infix_func);
+        parser.register_infix(TokenType::And, infix_func);
+        parser.register_infix(TokenType::Or, infix_func);
         parser.register_infix(TokenType::Eq, infix_func);
         parser.register_infix(TokenType::NotEq, infix_func);
         parser.register_infix(TokenType::Lt, infix_func);
