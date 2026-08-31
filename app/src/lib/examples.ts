@@ -6,7 +6,7 @@ export type Example = {
 export const examples: Example[] = [
   {
     name: "strings",
-    code: `// strings are supported in abclang, along with string concatenation
+    code: `// string concatenation
 let firstname = "johnny";
 let middlename = "moneybaggs";
 let lastname = "appleseed";
@@ -17,7 +17,7 @@ fullname
   },
   {
     name: "arithmetic",
-    code: `// fnteger arithmetic testing usual precedence rules.
+    code: `// usual precedence rules
 let a = 5;
 let b = 10;
 
@@ -26,64 +26,50 @@ let b = 10;
   },
   {
     name: "reassignment",
-    code: `// 'let' introduces a binding; a bare '=' reassigns an existing one.
+    code: `// '=' reassigns an existing binding
 let count = 0;
 count = count + 1;
 count = count + 1;
-println("count:", count); // => 2
+println("count:", count);
 
-// arrays are mutable: assign straight into an index (must be in bounds).
 let nums = [1, 2, 3];
 nums[0] = 99;
 nums[2] = nums[2] + 100;
-println("nums:", nums); // => [99, 2, 103]
+println("nums:", nums);
 
-// hashmaps too: assigning a new key inserts, an existing key updates.
 let ages = {"alice": 30};
-ages["bob"] = 25; // insert
-ages["alice"] = 31; // update
-ages.carol = 41; // dot sugar for ages["carol"] = 41
+ages["bob"] = 25;
+ages["alice"] = 31;
+ages.carol = 41;
 println("ages:", ages);
 
-// assignment reaches through nesting and shared references.
 let grid = [[0, 0], [0, 0]];
 grid[1][0] = 7;
-println("grid:", grid); // => [[0, 0], [7, 0]]
+println("grid:", grid);
 `,
   },
   {
     name: "numbers",
-    code: `// abclang has two number types: ints and floats.
-
-// integer literals
+    code: `// ints and floats
 let count = 42;
 let negative = -7;
-
-// float literals (any number with a decimal point)
 let pi = 3.14159;
 let tiny = -0.5;
 
-// printing numbers
 println("int:", count);
 println("float:", pi);
-
-// arithmetic follows the usual precedence rules
 println("int math:", (count + 8) * 2 - 10 / 5);
 println("float math:", pi * 2.0);
-
-// mixing ints and floats promotes the result to a float
 println("mixed:", 3 + 0.5);
 
-// division: int / int stays an int (truncates), float division keeps the remainder
+// int/int truncates, float/float doesn't
 println("int division:", 7 / 2);
 println("float division:", 7.0 / 2.0);
 
-// numbers can live side by side in arrays
 let mixed = [1, 2.5, 3, -4.25, count, pi];
 println("array:", mixed);
 println("first + last:", mixed[0] + mixed[len(mixed) - 1]);
 
-// and as hashmap values
 let constants = {"pi": 3.14159, "e": 2.71828, "answer": 42};
 println("hashmap:", constants);
 println("e:", constants["e"]);
@@ -91,7 +77,7 @@ println("e:", constants["e"]);
   },
   {
     name: "conditionals",
-    code: `// if / else is an expression: it evaluates to a value.
+    code: `// if/else is an expression
 let classify = fn(n) {
   if (n > 0) {
     return "positive";
@@ -105,7 +91,7 @@ classify(21);
   },
   {
     name: "arrays",
-    code: `// abclang supports arrays. they do not have to be homogoneous (same elements).
+    code: `// arrays can hold mixed types
 let getOne = fn() { 1 };
 
 let abc = [
@@ -119,21 +105,18 @@ let abc = [
   len("hello world")
 ];
 
-// use push() to grow the array with a new element
 abc = push(abc, 3)
 println(abc)
 
-// overwrite a specific index in place
 abc[0] = 100
 println(abc[0])
 `,
   },
   {
     name: "hashmaps",
-    code: `// abclang supports hashmaps. they do not have to be homogoneous (same elements). you can use integer, boolean, or string as key.
+    code: `// keys can be int, bool, or string
 let people = [{"name": "Alice", "age": 24}, {"name": "Anna", "age": 28}];
 
-// index and key assignment mutate in place, and reach through nesting.
 people[1]["name"] = "Beth";
 people[0]["age"] = people[0]["age"] + 1;
 
@@ -171,34 +154,25 @@ println(a.dist(b));
   },
   {
     name: "builtins",
-    code: `// abclang has some default builtins you may use
-
-// len() can be called on any string or array to output total length of string
+    code: `// len() = length of a string or array
 let firstname = "johnny";
 let lastname = "appleseed";
 let fullname = firstname + " " + lastname;
 
-// max() and min() compare two integers
+// max()/min() compare two ints
 let longest = max(len(firstname), len(lastname));
 let shortest = min(len(firstname), len(lastname));
-
 println("minmax example:", [len(fullname), longest, shortest]);
 
-// abclang supports
 // first(arr) -> arr[0]
 // last(arr) -> arr[len(arr) - 1]
-// rest(arr) -> returns arr[1..len(arr)]
-// push(arr, itm) -> grows arr = [...arr, itm]
-// range(n) -> [0, 1, ..., n - 1]
-// range(start, end) -> [start, ..., end - 1]
-
-// to overwrite in place, assign straight into an index or key:
-// arr[idx] = val (idx must be in bounds), map[key] = val (inserts or updates)
-
+// rest(arr) -> arr[1..]
+// push(arr, itm) -> arr + [itm]
+// range(n) -> [0..n), range(start, end) -> [start..end)
 println("push array example:", push([1, 2], 3));
 println("range example:", range(1, 5));
 
-// you can chain these together to make a map function!
+// chain them into a map()
 let map = fn(arr, f) {
     let iter = fn(arr, accumulated) {
         if (len(arr) == 0) {
@@ -212,10 +186,9 @@ let map = fn(arr, f) {
 
 let a = [1, 2, 3, 4];
 let double = fn(x) { x * 2 };
-
 println("map example:", map(a, double));
 
-// you can chain these together to make a reduce & sum function!
+// and a reduce()
 let reduce = fn(arr, initial, f) {
   let iter = fn(arr, result) {
     if (len(arr) == 0) {
@@ -230,13 +203,12 @@ let reduce = fn(arr, initial, f) {
 let sum = fn(arr) {
   reduce(arr, 0, fn(initial, el) { initial + el });
 };
-
 println("sum example:", sum([1, 2, 3, 4, 5]));
 `,
   },
   {
     name: "functions",
-    code: `// functions are first-class values bound with let.
+    code: `// functions are first-class values
 let double = fn(x) { x * 2 };
 let apply = fn(f, x) { f(x) };
 
@@ -245,7 +217,7 @@ apply(double, 16);
   },
   {
     name: "closures",
-    code: `// inner functions capture their surrounding environment.
+    code: `// closures capture their environment
 let newAdder = fn(x) {
   fn(y) { x + y };
 };
@@ -256,7 +228,7 @@ addTwo(2);
   },
   {
     name: "recursion",
-    code: `// a function can call itself through its binding.
+    code: `// functions can call themselves
 let fib = fn(n) {
   if (n < 2) {
     return n;
@@ -274,19 +246,19 @@ fib(10);
 println("range(n):", range(3));
 println("range(start, end):", range(2, 6));
 
-// range pairs nicely with a for loop to iterate by index
+// range pairs with for loop to iterate by index
 let nums = [10, 20, 30];
 for i in range(len(nums)) {
   println(i, nums[i]);
 }
 
-// for loops iterate arrays directly too
+// or iterate arrays directly
 for n in nums {
   println(n);
 }
 println("");
 
-// maps are iterable with a "key, value" for loop
+// or iterate maps
 let ages = {"alice": 30, "bob": 25};
 for name, age in ages {
   println(name, age);
@@ -315,8 +287,7 @@ println(twoSum([3,2,3], 6));
   },
   {
     name: "Leetcode - 91. Decode Ways",
-    code: `
-// https://leetcode.com/problems/decode-ways/
+    code: `// https://leetcode.com/problems/decode-ways/
 // C++ solution: https://codebloom.patinanetwork.org/submission/f2bda114-ce01-4f57-96db-1d251263fd59
 let decodeWays = fn(s) {
   let cache = { len(s): 1 }
