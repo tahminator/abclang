@@ -142,35 +142,31 @@ people[1]["name"] + " & " + people[0]["name"];
   },
   {
     name: "dot syntax / classes",
-    code: `// hashmap fields can be read with dot syntax: hash.field is just
-// shorthand for hash["field"]. the name after the dot is always a
-// literal key (not a variable).
+    code: `// dot syntax: hash.field is sugar for hash["field"]
 let person = {"name": "Alice", "age": 24};
+println(person.name, person.age);
 
-println(person.name);
-println(person.age);
-
-// abclang has no classes, but you can model them with hashmaps:
-// store data under keys and behavior as fn values. because functions
-// are closures, a constructor captures its arguments, so the methods
-// can use the fields without any "this".
-let newRect = fn(width, height) {
-  {
-    "width": width,
-    "height": height,
-    "area": fn() { width * height },
-    // methods can even return new "instances"
-    "scale": fn(factor) { newRect(width * factor, height * factor) }
+// real classes: self.field sets instance state
+class Point {
+  fn new(self, x, y) {
+    self.x = x;
+    self.y = y;
   }
-};
 
-let r = newRect(3, 4);
-println("width:", r.width);
-println("area:", r.area());
+  fn dist(self, other) {
+    let dx = self.x - other.x;
+    let dy = self.y - other.y;
+    dx * dx + dy * dy
+  }
 
-let big = r.scale(2);
-println("scaled width:", big.width);
-println("scaled area:", big.area());
+  // no self = static
+  // can be called on class or an instance of class
+  fn origin() { Point(0, 0) }
+}
+
+let a = Point.origin();
+let b = Point(3, 4);
+println(a.dist(b));
 `,
   },
   {

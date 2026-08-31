@@ -247,6 +247,7 @@ impl Display for ForExpression {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FnLiteralExpression {
     pub token: Rc<Token>,
+    pub name: Option<IdentifierExpression>,
     pub params: Vec<IdentifierExpression>,
     pub body: Option<BlockStatement>,
 }
@@ -262,8 +263,12 @@ impl Display for FnLiteralExpression {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(
             f,
-            "{}({}) {}",
+            "{}{}({}) {}",
             self.token_literal(),
+            self.name
+                .as_ref()
+                .map(|n| format!(" {}", n.value))
+                .unwrap_or_default(),
             self.params
                 .iter()
                 .map(|p| p.to_string())
