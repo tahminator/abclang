@@ -63,6 +63,7 @@ pub enum TokenType {
     Return,
     For,
     In,
+    Class,
 
     String,
     Char,
@@ -110,6 +111,7 @@ impl fmt::Display for TokenType {
             TokenType::Return => "return",
             TokenType::For => "for",
             TokenType::In => "in",
+            TokenType::Class => "class",
             TokenType::Eq => "==",
             TokenType::NotEq => "!=",
             TokenType::String => "String",
@@ -134,6 +136,7 @@ static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "return" => TokenType::Return,
     "for" => TokenType::For,
     "in" => TokenType::In,
+    "class" => TokenType::Class,
 };
 
 pub fn lookup_ident(ident: &str) -> TokenType {

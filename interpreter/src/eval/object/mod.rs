@@ -51,6 +51,7 @@ pub enum ObjectType {
     BuiltIn,
     Array,
     Hash,
+    Class,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,6 +67,7 @@ pub enum Object {
     BuiltIn(BuiltInFunctionObject),
     Array(ArrayObject),
     Hash(HashObject),
+    Class(ClassObject),
 }
 
 impl Objecter for Object {
@@ -82,6 +84,7 @@ impl Objecter for Object {
             Object::BuiltIn(o) => o.typ(),
             Object::Array(o) => o.typ(),
             Object::Hash(o) => o.typ(),
+            Object::Class(o) => o.typ(),
         }
     }
 
@@ -98,6 +101,7 @@ impl Objecter for Object {
             Object::BuiltIn(o) => o.inspect_value(),
             Object::Array(o) => o.inspect_value(),
             Object::Hash(o) => o.inspect_value(),
+            Object::Class(o) => o.inspect_value(),
         }
     }
 }
@@ -116,6 +120,7 @@ impl ObjectHasher for Object {
             Object::BuiltIn(o) => o.hash_key(),
             Object::Array(o) => o.hash_key(),
             Object::Hash(o) => o.hash_key(),
+            Object::Class(o) => o.hash_key(),
         }
     }
 }
@@ -283,6 +288,29 @@ impl Objecter for FunctionObject {
                 .map(|b| b.to_string())
                 .unwrap_or_else(|| "None".to_string())
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassObject {
+    pub name: Rc<str>,
+    pub body: BlockStatement,
+    pub env: Env,
+}
+
+impl ObjectHasher for ClassObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
+    }
+}
+
+impl Objecter for ClassObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Class
+    }
+
+    fn inspect_value(&self) -> String {
+        format!("class {}", self.name)
     }
 }
 

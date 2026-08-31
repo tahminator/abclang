@@ -15,6 +15,7 @@ pub enum Statement {
     Return(ReturnStatement),
     Expression(ExpressionStatement),
     Block(BlockStatement),
+    Class(ClassStatement),
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -28,6 +29,7 @@ impl Display for Statement {
             Statement::Return(stmt) => w(stmt),
             Statement::Expression(stmt) => w(stmt),
             Statement::Block(stmt) => w(stmt),
+            Statement::Class(stmt) => w(stmt),
         }
     }
 }
@@ -40,6 +42,7 @@ impl Node for Statement {
             Statement::Return(stmt) => stmt.token_literal(),
             Statement::Expression(stmt) => stmt.token_literal(),
             Statement::Block(stmt) => stmt.token_literal(),
+            Statement::Class(stmt) => stmt.token_literal(),
         }
     }
 }
@@ -137,6 +140,32 @@ impl Node for ExpressionStatement {
 impl Display for ExpressionStatement {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.expr)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ClassStatement {
+    pub token: Rc<Token>,
+    pub name: IdentifierExpression,
+    pub body: BlockStatement,
+}
+
+impl Node for ClassStatement {
+    fn token_literal(&self) -> Rc<str> {
+        self.token.literal.clone()
+    }
+}
+
+#[cfg(not(tarpaulin_include))]
+impl Display for ClassStatement {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(
+            f,
+            "{} {} {{\n{}\n}}",
+            self.token_literal(),
+            self.name.value,
+            self.body
+        )
     }
 }
 

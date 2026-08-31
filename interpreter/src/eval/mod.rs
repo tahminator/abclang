@@ -11,8 +11,8 @@ use crate::{
     eval::{
         builtins::BUILTINS,
         object::{
-            ArrayObject, CharObject, ErrorObject, FloatObject, FunctionObject, HashObject,
-            IntegerObject, NullObject, Object, ObjectHasher, ObjectType, Objecter,
+            ArrayObject, CharObject, ClassObject, ErrorObject, FloatObject, FunctionObject,
+            HashObject, IntegerObject, NullObject, Object, ObjectHasher, ObjectType, Objecter,
             ReturnValueObject, StringObject,
             environment::{Env, Environment},
         },
@@ -79,6 +79,29 @@ fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
                 }),
                 None => {
                     env.set(name.to_string(), val);
+                    Ok(Object::NULL)
+                }
+            }
+        }
+        Statement::Class(stmt) => {
+            let name = stmt.name.value.clone();
+
+            let class = Object::Class(ClassObject {
+                name: name.clone(),
+                body: stmt.body.clone(),
+                env: env.clone(),
+            });
+
+            let mut env = env.try_borrow_mut().map_err(|e| ErrorObject {
+                msg: format!("internal eval error: could not borrow env due to: {e:#?}"),
+            })?;
+
+            match env.get_in_scope(&name) {
+                Some(_) => Err(ErrorObject {
+                    msg: format!("{name} already exists, choose a different class name"),
+                }),
+                None => {
+                    env.set(name.to_string(), class);
                     Ok(Object::NULL)
                 }
             }
