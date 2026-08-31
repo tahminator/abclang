@@ -258,7 +258,7 @@ for n in nums {
 }
 println("");
 
-// or iterate maps
+// or iterate maps via \`for k, v in map {  }\`
 let ages = {"alice": 30, "bob": 25};
 for name, age in ages {
   println(name, age);

@@ -1532,7 +1532,7 @@ mod tests {
         },
         Case {
             name: "string_index_char_coerced_to_str_eq",
-            input: r#" let s = "xyz"; print(str(s[0]) == "x"); "#,
+            input: r#" let s = "xyz"; print(string(s[0]) == "x"); "#,
             output: "true",
         },
         Case {
@@ -1583,7 +1583,7 @@ mod tests {
         },
         Case {
             name: "char_coerced_str_eq_string",
-            input: r#"str('a') == "a""#,
+            input: r#"string('a') == "a""#,
             output: "true",
         },
         // builtins
@@ -1804,36 +1804,42 @@ mod tests {
             input: "type(1, 2)",
             output: "ERROR: expected 1 argument to type(), received 2",
         },
-        // str_builtin
+        // string_builtin
         Case {
-            name: "str_from_int",
-            input: "print(str(5))",
+            name: "string_from_int",
+            input: "print(string(5))",
             output: "5",
         },
         Case {
-            name: "str_from_float",
-            input: "print(str(1.5))",
+            name: "string_from_float",
+            input: "print(string(1.5))",
             output: "1.5",
         },
         Case {
-            name: "str_from_bool",
-            input: "print(str(true))",
+            name: "string_from_bool",
+            input: "print(string(true))",
             output: "true",
         },
         Case {
-            name: "str_from_char",
-            input: "print(str('c'))",
+            name: "string_from_char",
+            input: "print(string('c'))",
             output: "c",
         },
         Case {
-            name: "str_from_string_eq",
-            input: r#"print(str("hi") == "hi")"#,
+            name: "string_from_string_eq",
+            input: r#"print(string("hi") == "hi")"#,
             output: "true",
         },
         Case {
-            name: "err_str_wrong_arity",
-            input: "str(1, 2)",
-            output: "ERROR: expected 1 argument to str(), received 2",
+            name: "err_string_wrong_arity",
+            input: "string(1, 2)",
+            output: "ERROR: expected 1 argument to string(), received 2",
+        },
+        // str_builtin (deprecated, delegates to string())
+        Case {
+            name: "str_is_deprecated_but_still_works",
+            input: "str(5)",
+            output: "[WARNING] str() is deprecated, please use string() instead5",
         },
         // int_builtin
         Case {
