@@ -300,7 +300,7 @@ fn println(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
     Ok(Object::NULL)
 }
 
-fn str(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+fn str(args: &[Object], _: &Env) -> Result<Object, ErrorObject> {
     match args {
         [o] => Ok(Object::String(StringObject {
             value: o.inspect_value().into(),
@@ -311,7 +311,7 @@ fn str(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
     }
 }
 
-fn int(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+fn int(args: &[Object], _: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Float(o)] => Ok(Object::Integer(IntegerObject {
             value: unsafe { o.value.to_int_unchecked() },
@@ -330,7 +330,7 @@ fn int(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
     }
 }
 
-fn float(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+fn float(args: &[Object], _: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Float(o)] => Ok(Object::Float(o.clone())),
         [Object::Integer(o)] => Ok(Object::Float(FloatObject {
@@ -349,7 +349,7 @@ fn float(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
     }
 }
 
-fn _type(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+fn _type(args: &[Object], _: &Env) -> Result<Object, ErrorObject> {
     match args {
         [o] => Ok(Object::String(StringObject {
             value: o.typ().to_string().into(),
