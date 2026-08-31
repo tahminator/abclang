@@ -17,7 +17,7 @@ pub enum Category {
 fn category_for(typ: TokenType) -> Option<Category> {
     use TokenType::*;
     Some(match typ {
-        Function | Let | True | False | Null | If | Else | Return | For | In | And | Or => {
+        Function | Let | True | False | Null | If | Else | Return | For | In | And | Or | Class => {
             Category::Keyword
         }
         Int | Float => Category::Number,

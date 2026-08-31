@@ -6,7 +6,7 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     ast::{
         self, ArrayExpression, AssignStatement, BlockStatement, BooleanExpression, CallExpression,
-        CharExpression, Expression, ExpressionStatement, FloatLiteralExpression,
+        CharExpression, ClassStatement, Expression, ExpressionStatement, FloatLiteralExpression,
         FnLiteralExpression, ForExpression, HashExpression, IdentifierExpression, IfExpression,
         IndexExpression, InfixExpression, IntegerLiteralExpression, LetStatement,
         NullLiteralExpression, PrefixExpression, Program, ReturnStatement, Statement,
@@ -401,6 +401,7 @@ impl Parser {
         match self.cur_token.typ {
             TokenType::Let => self.parse_let_statement().map(Statement::Let),
             TokenType::Return => self.parse_return_statement().map(Statement::Return),
+            TokenType::Class => self.parse_class_statement().map(Statement::Class),
             _ => self.parse_expression_statement(),
         }
     }
@@ -615,6 +616,27 @@ impl Parser {
         }
 
         Some(LetStatement { name, token, value })
+    }
+
+    fn parse_class_statement(&mut self) -> Option<ClassStatement> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::Ident) {
+            return None;
+        }
+
+        let name = IdentifierExpression {
+            value: self.cur_token.literal.clone(),
+            token: self.cur_token.clone(),
+        };
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return None;
+        }
+
+        let body = self.parse_block_statement()?;
+
+        Some(ClassStatement { token, name, body })
     }
 
     fn cur_token_is(&self, typ: TokenType) -> bool {
