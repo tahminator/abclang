@@ -174,6 +174,16 @@ impl Parser {
     fn parse_function_literal(&mut self) -> Option<Expression> {
         let token = self.cur_token.clone();
 
+        let name = if self.peek_token_is(TokenType::Ident) {
+            self.next_token();
+            Some(IdentifierExpression {
+                token: self.cur_token.clone(),
+                value: self.cur_token.literal.clone(),
+            })
+        } else {
+            None
+        };
+
         if !self.expect_peek(TokenType::LParen) {
             return None;
         }
@@ -188,6 +198,7 @@ impl Parser {
 
         Some(Expression::FnLiteral(FnLiteralExpression {
             token,
+            name,
             params,
             body,
         }))

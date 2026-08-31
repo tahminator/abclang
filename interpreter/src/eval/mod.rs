@@ -1,7 +1,7 @@
 pub mod builtins;
 pub mod object;
 
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
@@ -12,8 +12,8 @@ use crate::{
         builtins::BUILTINS,
         object::{
             ArrayObject, CharObject, ClassObject, ErrorObject, FloatObject, FunctionObject,
-            HashObject, IntegerObject, NullObject, Object, ObjectHasher, ObjectType, Objecter,
-            ReturnValueObject, StringObject,
+            HashObject, InstanceObject, IntegerObject, NullObject, Object, ObjectHasher,
+            ObjectType, Objecter, ReturnValueObject, StringObject,
             environment::{Env, Environment},
         },
     },
@@ -86,10 +86,12 @@ fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
         Statement::Class(stmt) => {
             let name = stmt.name.value.clone();
 
+            let class_env = Environment::new_enclosed(env.clone());
+            eval_block_statement(&stmt.body, &class_env)?;
+
             let class = Object::Class(ClassObject {
                 name: name.clone(),
-                body: stmt.body.clone(),
-                env: env.clone(),
+                env: class_env,
             });
 
             let mut env = env.try_borrow_mut().map_err(|e| ErrorObject {
@@ -98,7 +100,7 @@ fn eval_statement(stmt: &Statement, env: &Env) -> Result<Object, ErrorObject> {
 
             match env.get_in_scope(&name) {
                 Some(_) => Err(ErrorObject {
-                    msg: format!("{name} already exists, choose a different class name"),
+                    msg: format!("{name} already exists in scope, choose a different class name"),
                 }),
                 None => {
                     env.set(name.to_string(), class);
@@ -154,13 +156,38 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
         Expression::FnLiteral(expr) => {
             let params = expr.params.clone();
             let body = expr.body.clone();
-            Ok(Object::Function(FunctionObject {
+            let func = Object::Function(FunctionObject {
                 params,
                 body,
                 env: env.clone(),
-            }))
+            });
+
+            if let Some(name) = &expr.name {
+                env.try_borrow_mut()?
+                    .set(name.value.to_string(), func.clone());
+            }
+
+            Ok(func)
         }
         Expression::Call(expr) => {
+            if let Expression::Index(idx) = expr.function.as_ref()
+                && let Expression::String(name_expr) = idx.index.as_ref()
+            {
+                let receiver = eval_expression(&idx.left, env)?;
+
+                if matches!(receiver, Object::Instance(_) | Object::Class(_)) {
+                    let args = eval_expressions(&expr.args, env)?;
+                    return eval_method_call(receiver, name_expr.value.as_ref(), args, env);
+                }
+
+                let index = Object::String(StringObject {
+                    value: name_expr.value.clone(),
+                });
+                let func = eval_index_expression(&receiver, &index)?;
+                let args = eval_expressions(&expr.args, env)?;
+                return apply_function(func, args, env);
+            }
+
             let func = eval_expression(&expr.function, env)?;
 
             let args = eval_expressions(&expr.args, env)?;
@@ -224,6 +251,49 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
     }
 }
 
+fn eval_method_call(
+    receiver: Object,
+    name: &str,
+    args: Vec<Object>,
+    env: &Env,
+) -> Result<Object, ErrorObject> {
+    let (class_env, instance) = match &receiver {
+        Object::Instance(instance) => (instance.class_env.clone(), Some(receiver.clone())),
+        Object::Class(class) => (class.env.clone(), None),
+        _ => unreachable!("eval_method_call is only called with a Class or Instance receiver"),
+    };
+
+    let method = class_env
+        .borrow()
+        .get_in_scope(name)
+        .ok_or_else(|| ErrorObject {
+            msg: format!("{name} is not defined on {}", receiver.typ()),
+        })?;
+
+    let Object::Function(func) = method else {
+        return Err(ErrorObject {
+            msg: format!("{name} is not a method"),
+        });
+    };
+
+    let has_self = func
+        .params
+        .first()
+        .map(|p| p.value.as_ref() == "self")
+        .unwrap_or(false);
+
+    if has_self {
+        let instance = instance.ok_or_else(|| ErrorObject {
+            msg: format!("{name} is an instance method and requires an instance to call"),
+        })?;
+
+        let call_args = std::iter::once(instance).chain(args).collect();
+        apply_function(Object::Function(func), call_args, env)
+    } else {
+        apply_function(Object::Function(func), args, env)
+    }
+}
+
 fn apply_function(func: Object, args: Vec<Object>, env: &Env) -> Result<Object, ErrorObject> {
     match func {
         Object::Function(func) => {
@@ -237,6 +307,31 @@ fn apply_function(func: Object, args: Vec<Object>, env: &Env) -> Result<Object, 
             Ok(unwrap_return_value(output))
         }
         Object::BuiltIn(func) => (func.function)(&args, env),
+        Object::Class(class) => {
+            let instance = Object::Instance(InstanceObject {
+                class_name: class.name.clone(),
+                class_env: class.env.clone(),
+                fields: Rc::new(RefCell::new(HashMap::new())),
+            });
+
+            if let Some(Object::Function(ctor)) = class.env.borrow().get_in_scope("new") {
+                let has_self = ctor
+                    .params
+                    .first()
+                    .map(|p| p.value.as_ref() == "self")
+                    .unwrap_or(false);
+
+                let call_args = if has_self {
+                    std::iter::once(instance.clone()).chain(args).collect()
+                } else {
+                    args
+                };
+
+                apply_function(Object::Function(ctor), call_args, env)?;
+            }
+
+            Ok(instance)
+        }
         _ => Err(ErrorObject {
             msg: format!("not a function: {func:?}"),
         }),
@@ -266,6 +361,12 @@ fn eval_index_expression(left: &Object, index: &Object) -> Result<Object, ErrorO
         (Object::Array(left), Object::Integer(index)) => eval_array_index_expression(left, index),
         (Object::String(left), Object::Integer(index)) => eval_string_index_expression(left, index),
         (Object::Hash(left), index) => eval_hash_index_expression(left, index),
+        (Object::Instance(instance), Object::String(key)) => Ok(instance
+            .fields
+            .try_borrow()?
+            .get(key.value.as_ref())
+            .cloned()
+            .unwrap_or(Object::NULL)),
         _ => Err(ErrorObject {
             msg: format!("index operator not supported: {}", left.typ()),
         }),
@@ -300,6 +401,14 @@ fn eval_index_assign(left: &Object, index: &Object, value: Object) -> Result<(),
             hash.pairs
                 .try_borrow_mut()?
                 .insert(hashed, (key.clone(), value));
+
+            Ok(())
+        }
+        (Object::Instance(instance), Object::String(key)) => {
+            instance
+                .fields
+                .try_borrow_mut()?
+                .insert(key.value.to_string(), value);
 
             Ok(())
         }
@@ -2273,6 +2382,82 @@ find({1: 10, 2: 20, 3: 30}, 2)"#,
             input: r#"let x = null; if (x == null) { print("missing") }"#,
             output: "missing",
         },
+        // classes
+        Case {
+            name: "class_declaration_binds_name",
+            input: "class Foo {} Foo;",
+            output: "class Foo",
+        },
+        Case {
+            name: "class_redeclare_errors",
+            input: "class Foo {} class Foo {}",
+            output: "ERROR: Foo already exists in scope, choose a different class name",
+        },
+        Case {
+            name: "constructor_sets_field_via_self_x",
+            input: "class Point { fn new(self) { self.x = 1; self.y = 2; } } Point().x;",
+            output: "1",
+        },
+        Case {
+            name: "constructor_sets_field_via_self_y",
+            input: "class Point { fn new(self) { self.x = 1; self.y = 2; } } Point().y;",
+            output: "2",
+        },
+        Case {
+            name: "constructor_args_bind_after_self",
+            input: "class Sum { fn new(self, a, b) { self.total = a + b; } } Sum(3, 4).total;",
+            output: "7",
+        },
+        Case {
+            name: "field_reassignment_after_construction",
+            input: "class Counter { fn new(self) { self.n = 0; } } let c = Counter(); c.n = 5; c.n;",
+            output: "5",
+        },
+        Case {
+            name: "missing_field_reads_as_null",
+            input: "class Empty {} let e = Empty(); e.missing;",
+            output: "",
+        },
+        Case {
+            name: "static_method_callable_via_class",
+            input: "class MathUtils { fn square(x) { x * x } } MathUtils.square(5);",
+            output: "25",
+        },
+        Case {
+            name: "static_method_callable_via_instance",
+            input: "class MathUtils { fn square(x) { x * x } } MathUtils().square(5);",
+            output: "25",
+        },
+        Case {
+            name: "instance_method_mutates_self_across_calls",
+            input: "class Counter { fn new(self) { self.n = 0; } fn increment(self) { self.n = self.n + 1; } } let c = Counter(); c.increment(); c.increment(); c.n;",
+            output: "2",
+        },
+        Case {
+            name: "instance_method_via_class_without_instance_errors",
+            input: "class Counter { fn new(self) { self.n = 0; } fn increment(self) { self.n = self.n + 1; } } Counter.increment();",
+            output: "ERROR: increment is an instance method and requires an instance to call",
+        },
+        Case {
+            name: "undefined_method_errors",
+            input: "class Foo {} Foo().bar();",
+            output: "ERROR: bar is not defined on Instance",
+        },
+        Case {
+            name: "dot_call_on_hash_stored_function",
+            input: r#"let obj = {"greet": fn(name) { "hi " + name }}; obj.greet("bob");"#,
+            output: "hi bob",
+        },
+        Case {
+            name: "method_lookup_resolves_to_non_function_errors",
+            input: "class Foo { let x = 5; } Foo.x();",
+            output: "ERROR: x is not a method",
+        },
+        Case {
+            name: "constructor_without_self_runs_but_binds_no_fields",
+            input: "class Foo { fn new() { println(\"built\"); } } Foo(); 1;",
+            output: "built\n1",
+        },
         // decode_ways_regression
         Case {
             name: "decode_ways_11106",
@@ -2452,7 +2637,7 @@ decodeWays(s)
         Case {
             name: "err_parse_fn_missing_paren",
             input: "fn x { x }",
-            output: "parser has 3 error(s):\n\texpected next token to be (, got IDENT instead\n\texpected next token to be :, got } instead\n\tno prefix parse function for } found",
+            output: "parser has 3 error(s):\n\texpected next token to be (, got { instead\n\texpected next token to be :, got } instead\n\tno prefix parse function for } found",
         },
         Case {
             name: "err_parse_if_missing_paren",

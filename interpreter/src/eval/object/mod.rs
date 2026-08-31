@@ -52,6 +52,7 @@ pub enum ObjectType {
     Array,
     Hash,
     Class,
+    Instance,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -68,6 +69,7 @@ pub enum Object {
     Array(ArrayObject),
     Hash(HashObject),
     Class(ClassObject),
+    Instance(InstanceObject),
 }
 
 impl Objecter for Object {
@@ -85,6 +87,7 @@ impl Objecter for Object {
             Object::Array(o) => o.typ(),
             Object::Hash(o) => o.typ(),
             Object::Class(o) => o.typ(),
+            Object::Instance(o) => o.typ(),
         }
     }
 
@@ -102,6 +105,7 @@ impl Objecter for Object {
             Object::Array(o) => o.inspect_value(),
             Object::Hash(o) => o.inspect_value(),
             Object::Class(o) => o.inspect_value(),
+            Object::Instance(o) => o.inspect_value(),
         }
     }
 }
@@ -121,6 +125,7 @@ impl ObjectHasher for Object {
             Object::Array(o) => o.hash_key(),
             Object::Hash(o) => o.hash_key(),
             Object::Class(o) => o.hash_key(),
+            Object::Instance(o) => o.hash_key(),
         }
     }
 }
@@ -294,7 +299,6 @@ impl Objecter for FunctionObject {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassObject {
     pub name: Rc<str>,
-    pub body: BlockStatement,
     pub env: Env,
 }
 
@@ -311,6 +315,30 @@ impl Objecter for ClassObject {
 
     fn inspect_value(&self) -> String {
         format!("class {}", self.name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InstanceObject {
+    pub class_name: Rc<str>,
+    /// instance's class scope
+    pub class_env: Env,
+    pub fields: Rc<RefCell<HashMap<String, Object>>>,
+}
+
+impl ObjectHasher for InstanceObject {
+    fn hash_key(&self) -> Option<HashKey> {
+        None
+    }
+}
+
+impl Objecter for InstanceObject {
+    fn typ(&self) -> ObjectType {
+        ObjectType::Instance
+    }
+
+    fn inspect_value(&self) -> String {
+        format!("<{} instance [{:p}]>", self.class_name, self as *const Self)
     }
 }
 
