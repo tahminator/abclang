@@ -50,6 +50,10 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
         function: str,
         function_name: "str",
     },
+    "string" => BuiltInFunctionObject {
+        function: string,
+        function_name: "string",
+    },
     "int" => BuiltInFunctionObject {
         function: int,
         function_name: "int",
@@ -300,13 +304,19 @@ fn println(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
     Ok(Object::NULL)
 }
 
-fn str(args: &[Object], _: &Env) -> Result<Object, ErrorObject> {
+fn str(args: &[Object], env: &Env) -> Result<Object, ErrorObject> {
+    env.borrow()
+        .write_output("[WARNING] str() is deprecated, please use string() instead");
+    string(args, env)
+}
+
+fn string(args: &[Object], _: &Env) -> Result<Object, ErrorObject> {
     match args {
         [o] => Ok(Object::String(StringObject {
             value: o.inspect_value().into(),
         })),
         _ => Err(ErrorObject {
-            msg: format!("expected 1 argument to str(), received {}", args.len()),
+            msg: format!("expected 1 argument to string(), received {}", args.len()),
         }),
     }
 }
