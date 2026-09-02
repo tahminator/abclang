@@ -1,8 +1,8 @@
 use phf::phf_map;
 
 use crate::eval::object::{
-    ArrayObject, BuiltInFunctionObject, ErrorObject, FloatObject, IntegerObject, Object, Objecter,
-    StringObject, environment::Env,
+    ArrayObject, BuiltInFunctionObject, ErrorObject, FloatObject, IntegerObject, Object,
+    ObjectHasher, Objecter, StringObject, environment::Env,
 };
 
 pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
@@ -18,21 +18,49 @@ pub static BUILTINS: phf::Map<&'static str, BuiltInFunctionObject> = phf_map! {
         function: min,
         function_name: "min",
     },
-    "first" => BuiltInFunctionObject {
-        function: first,
-        function_name: "first",
+    "__INTERNALS_array_first" => BuiltInFunctionObject {
+        function: array_first,
+        function_name: "__INTERNALS_array_first",
     },
-    "last" => BuiltInFunctionObject {
-        function: last,
-        function_name: "last",
+    "__INTERNALS_array_last" => BuiltInFunctionObject {
+        function: array_last,
+        function_name: "__INTERNALS_array_last",
     },
-    "rest" => BuiltInFunctionObject {
-        function: rest,
-        function_name: "rest",
+    "__INTERNALS_array_rest" => BuiltInFunctionObject {
+        function: array_rest,
+        function_name: "__INTERNALS_array_rest",
     },
-    "push" => BuiltInFunctionObject {
-        function: push,
-        function_name: "push",
+    "__INTERNALS_array_push" => BuiltInFunctionObject {
+        function: array_push,
+        function_name: "__INTERNALS_array_push",
+    },
+    "__INTERNALS_array_pop" => BuiltInFunctionObject {
+        function: array_pop,
+        function_name: "__INTERNALS_array_pop",
+    },
+    "__INTERNALS_array_len" => BuiltInFunctionObject {
+        function: array_len,
+        function_name: "__INTERNALS_array_len",
+    },
+    "__INTERNALS_hash_len" => BuiltInFunctionObject {
+        function: hash_len,
+        function_name: "__INTERNALS_hash_len",
+    },
+    "__INTERNALS_hash_has" => BuiltInFunctionObject {
+        function: hash_has,
+        function_name: "__INTERNALS_hash_has",
+    },
+    "__INTERNALS_hash_remove" => BuiltInFunctionObject {
+        function: hash_remove,
+        function_name: "__INTERNALS_hash_remove",
+    },
+    "__INTERNALS_hash_keys" => BuiltInFunctionObject {
+        function: hash_keys,
+        function_name: "__INTERNALS_hash_keys",
+    },
+    "__INTERNALS_hash_values" => BuiltInFunctionObject {
+        function: hash_values,
+        function_name: "__INTERNALS_hash_values",
     },
     "print" => BuiltInFunctionObject {
         function: print,
@@ -76,9 +104,12 @@ fn len(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
         [Object::Array(arr)] => Ok(Object::Integer(IntegerObject {
             value: arr.elements.try_borrow()?.len() as i64,
         })),
+        [Object::Hash(hash)] => Ok(Object::Integer(IntegerObject {
+            value: hash.pairs.try_borrow()?.len() as i64,
+        })),
         [arg] => Err(ErrorObject {
             msg: format!(
-                "argument to `len` not supported, expected String or Array, got {}",
+                "argument to `len` not supported, expected String, Array, or Hash, got {}",
                 arg.typ()
             ),
         }),
@@ -151,7 +182,7 @@ fn min(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     }
 }
 
-fn first(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+fn array_first(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr)] => Ok(arr
             .elements
@@ -161,20 +192,20 @@ fn first(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
             .unwrap_or(Object::NULL)),
         [o] => Err(ErrorObject {
             msg: format!(
-                "arguments to `first` not supported, expected array, got {}",
+                "arguments to `__INTERNALS_array_first` not supported, expected array, got {}",
                 o.typ()
             ),
         }),
         _ => Err(ErrorObject {
             msg: format!(
-                "wrong number of arguments to `first`. got={}, want=1",
+                "wrong number of arguments to `__INTERNALS_array_first`. got={}, want=1",
                 args.len()
             ),
         }),
     }
 }
 
-fn last(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+fn array_last(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr)] => Ok(arr
             .elements
@@ -184,20 +215,20 @@ fn last(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
             .unwrap_or(Object::NULL)),
         [o] => Err(ErrorObject {
             msg: format!(
-                "arguments to `last` not supported, expected array, got {}",
+                "arguments to `__INTERNALS_array_last` not supported, expected array, got {}",
                 o.typ()
             ),
         }),
         _ => Err(ErrorObject {
             msg: format!(
-                "wrong number of arguments to `last`. got={}, want=1",
+                "wrong number of arguments to `__INTERNALS_array_last`. got={}, want=1",
                 args.len()
             ),
         }),
     }
 }
 
-fn rest(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+fn array_rest(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr)] => {
             let vec = arr.elements.try_borrow()?;
@@ -207,20 +238,20 @@ fn rest(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
         }
         [o] => Err(ErrorObject {
             msg: format!(
-                "arguments to `rest` not supported, expected array, got {}",
+                "arguments to `__INTERNALS_array_rest` not supported, expected array, got {}",
                 o.typ()
             ),
         }),
         _ => Err(ErrorObject {
             msg: format!(
-                "wrong number of arguments to `rest`. got={}, want=1",
+                "wrong number of arguments to `__INTERNALS_array_rest`. got={}, want=1",
                 args.len()
             ),
         }),
     }
 }
 
-fn push(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+fn array_push(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
     match args {
         [Object::Array(arr), itm] => {
             arr.elements.try_borrow_mut()?.push(itm.clone());
@@ -228,18 +259,179 @@ fn push(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
         }
         [Object::Array(_), ..] => Err(ErrorObject {
             msg: format!(
-                "wrong number of arguments to `push`. got={}, want=2",
+                "wrong number of arguments to `__INTERNALS_array_push`. got={}, want=2",
                 args.len()
             ),
         }),
         [o, ..] => Err(ErrorObject {
             msg: format!(
-                "argument to `push` not supported, expected Array, got {}",
+                "argument to `__INTERNALS_array_push` not supported, expected Array, got {}",
                 o.typ()
             ),
         }),
         [] => Err(ErrorObject {
-            msg: "wrong number of arguments to `push`. got=0, want=2".to_string(),
+            msg: "wrong number of arguments to `__INTERNALS_array_push`. got=0, want=2".to_string(),
+        }),
+    }
+}
+
+fn array_pop(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Array(arr)] => Ok(arr.elements.try_borrow_mut()?.pop().unwrap_or(Object::NULL)),
+        [o] => Err(ErrorObject {
+            msg: format!(
+                "arguments to `__INTERNALS_array_pop` not supported, expected array, got {}",
+                o.typ()
+            ),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `__INTERNALS_array_pop`. got={}, want=1",
+                args.len()
+            ),
+        }),
+    }
+}
+
+fn array_len(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Array(arr)] => Ok(Object::Integer(IntegerObject {
+            value: arr.elements.try_borrow()?.len() as i64,
+        })),
+        [o] => Err(ErrorObject {
+            msg: format!(
+                "argument to `__INTERNALS_array_len` not supported, expected Array, got {}",
+                o.typ()
+            ),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `__INTERNALS_array_len`. got={}, want=1",
+                args.len()
+            ),
+        }),
+    }
+}
+
+fn hash_len(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Hash(hash)] => Ok(Object::Integer(IntegerObject {
+            value: hash.pairs.try_borrow()?.len() as i64,
+        })),
+        [o] => Err(ErrorObject {
+            msg: format!(
+                "argument to `__INTERNALS_hash_len` not supported, expected Hash, got {}",
+                o.typ()
+            ),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `__INTERNALS_hash_len`. got={}, want=1",
+                args.len()
+            ),
+        }),
+    }
+}
+
+fn hash_has(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Hash(hash), key] => {
+            let Some(hashed) = key.hash_key() else {
+                return Ok(Object::FALSE);
+            };
+            Ok(if hash.pairs.try_borrow()?.contains_key(&hashed) {
+                Object::TRUE
+            } else {
+                Object::FALSE
+            })
+        }
+        [o, _] => Err(ErrorObject {
+            msg: format!(
+                "argument to `__INTERNALS_hash_has` not supported, expected Hash, got {}",
+                o.typ()
+            ),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `__INTERNALS_hash_has`. got={}, want=2",
+                args.len()
+            ),
+        }),
+    }
+}
+
+fn hash_remove(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Hash(hash), key] => {
+            let Some(hashed) = key.hash_key() else {
+                return Ok(Object::NULL);
+            };
+            Ok(hash
+                .pairs
+                .try_borrow_mut()?
+                .remove(&hashed)
+                .map(|(_, v)| v)
+                .unwrap_or(Object::NULL))
+        }
+        [o, _] => Err(ErrorObject {
+            msg: format!(
+                "argument to `__INTERNALS_hash_remove` not supported, expected Hash, got {}",
+                o.typ()
+            ),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `__INTERNALS_hash_remove`. got={}, want=2",
+                args.len()
+            ),
+        }),
+    }
+}
+
+fn hash_keys(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Hash(hash)] => Ok(Object::Array(ArrayObject::new(
+            hash.pairs
+                .try_borrow()?
+                .values()
+                .map(|(k, _)| k.clone())
+                .collect(),
+        ))),
+        [o] => Err(ErrorObject {
+            msg: format!(
+                "argument to `__INTERNALS_hash_keys` not supported, expected Hash, got {}",
+                o.typ()
+            ),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `__INTERNALS_hash_keys`. got={}, want=1",
+                args.len()
+            ),
+        }),
+    }
+}
+
+fn hash_values(args: &[Object], _env: &Env) -> Result<Object, ErrorObject> {
+    match args {
+        [Object::Hash(hash)] => Ok(Object::Array(ArrayObject::new(
+            hash.pairs
+                .try_borrow()?
+                .values()
+                .map(|(_, v)| v.clone())
+                .collect(),
+        ))),
+        [o] => Err(ErrorObject {
+            msg: format!(
+                "argument to `__INTERNALS_hash_values` not supported, expected Hash, got {}",
+                o.typ()
+            ),
+        }),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "wrong number of arguments to `__INTERNALS_hash_values`. got={}, want=1",
+                args.len()
+            ),
         }),
     }
 }
