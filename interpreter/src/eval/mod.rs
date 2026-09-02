@@ -282,6 +282,23 @@ fn eval_method_call(
         .map(|p| p.value.as_ref() == "self")
         .unwrap_or(false);
 
+    let expected = if has_self {
+        func.params.len() - 1
+    } else {
+        func.params.len()
+    };
+
+    if args.len() != expected {
+        return Err(ErrorObject {
+            msg: format!(
+                "{name} expects {} argument{}, got {}",
+                expected,
+                if expected == 1 { "" } else { "s" },
+                args.len()
+            ),
+        });
+    }
+
     if has_self {
         let instance = instance.ok_or_else(|| ErrorObject {
             msg: format!("{name} is an instance method and requires an instance to call"),
@@ -320,6 +337,24 @@ fn apply_function(func: Object, args: Vec<Object>, env: &Env) -> Result<Object, 
                     .first()
                     .map(|p| p.value.as_ref() == "self")
                     .unwrap_or(false);
+
+                let expected = if has_self {
+                    ctor.params.len() - 1
+                } else {
+                    ctor.params.len()
+                };
+
+                if args.len() != expected {
+                    return Err(ErrorObject {
+                        msg: format!(
+                            "{} constructor expects {} argument{}, got {}",
+                            class.name,
+                            expected,
+                            if expected == 1 { "" } else { "s" },
+                            args.len()
+                        ),
+                    });
+                }
 
                 let call_args = if has_self {
                     std::iter::once(instance.clone()).chain(args).collect()
@@ -466,12 +501,21 @@ fn eval_array_index_expression(
 }
 
 fn extend_function_env(func: FunctionObject, args: Vec<Object>) -> Result<Env, ErrorObject> {
+    if args.len() != func.params.len() {
+        return Err(ErrorObject {
+            msg: format!(
+                "expected {} argument{}, got {}",
+                func.params.len(),
+                if func.params.len() == 1 { "" } else { "s" },
+                args.len()
+            ),
+        });
+    }
+
     let env = Environment::new_enclosed(func.env);
 
-    for (i, p) in func.params.iter().enumerate() {
-        env.borrow_mut().set(p.value.to_string(), args.get(i).ok_or_else(|| ErrorObject {
-            msg: "when extending function environment, attempting to find an original arg, but cannot find it.".to_string()
-        })?.clone());
+    for (p, arg) in func.params.iter().zip(args) {
+        env.try_borrow_mut()?.set(p.value.to_string(), arg);
     }
 
     Ok(env)
@@ -2463,6 +2507,36 @@ find({1: 10, 2: 20, 3: 30}, 2)"#,
             name: "constructor_without_self_runs_but_binds_no_fields",
             input: "class Foo { fn new() { println(\"built\"); } } Foo(); 1;",
             output: "built\n1",
+        },
+        Case {
+            name: "err_fn_call_too_many_args",
+            input: "let add = fn(x, y) { x + y }; add(1, 2, 3);",
+            output: "ERROR: expected 2 arguments, got 3",
+        },
+        Case {
+            name: "err_fn_call_too_few_args",
+            input: "let add = fn(x, y) { x + y }; add(1);",
+            output: "ERROR: expected 2 arguments, got 1",
+        },
+        Case {
+            name: "err_constructor_too_many_args",
+            input: "class Point { fn new(self, x, y) { self.x = x; self.y = y; } } Point(1, 2, 3);",
+            output: "ERROR: Point constructor expects 2 arguments, got 3",
+        },
+        Case {
+            name: "err_constructor_too_few_args",
+            input: "class Point { fn new(self, x, y) { self.x = x; self.y = y; } } Point(1);",
+            output: "ERROR: Point constructor expects 2 arguments, got 1",
+        },
+        Case {
+            name: "err_method_call_too_many_args",
+            input: "class Point { fn new(self, x) { self.x = x; } fn dist(self, other) { self.x - other.x } } let p = Point(0); p.dist(1, 2);",
+            output: "ERROR: dist expects 1 argument, got 2",
+        },
+        Case {
+            name: "err_method_call_too_few_args",
+            input: "class Point { fn new(self, x) { self.x = x; } fn dist(self, other) { self.x - other.x } } let p = Point(0); p.dist();",
+            output: "ERROR: dist expects 1 argument, got 0",
         },
         // decode_ways_regression
         Case {
