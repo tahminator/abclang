@@ -105,7 +105,7 @@ let abc = [
   len("hello world")
 ];
 
-abc = push(abc, 3)
+abc.push(3);
 println(abc)
 
 abc[0] = 100
@@ -154,7 +154,7 @@ println(a.dist(b));
   },
   {
     name: "builtins",
-    code: `// len() = length of a string or array
+    code: `// len() = length of a string, array, or hashmap
 let firstname = "johnny";
 let lastname = "appleseed";
 let fullname = firstname + " " + lastname;
@@ -164,44 +164,43 @@ let longest = max(len(firstname), len(lastname));
 let shortest = min(len(firstname), len(lastname));
 println("minmax example:", [len(fullname), longest, shortest]);
 
-// first(arr) -> arr[0]
-// last(arr) -> arr[len(arr) - 1]
-// rest(arr) -> arr[1..]
-// push(arr, itm) -> arr + [itm]
 // range(n) -> [0..n), range(start, end) -> [start..end)
-println("push array example:", push([1, 2], 3));
 println("range example:", range(1, 5));
 
-// chain them into a map()
-let map = fn(arr, f) {
-    let iter = fn(arr, accumulated) {
-        if (len(arr) == 0) {
-            accumulated
-        } else {
-            iter(rest(arr), push(accumulated, f(first(arr))));
-        }
-    };
-    iter(arr, []);
-};
+// arrays are backed by the Array class:
+// .push, .pop, .first, .last, .rest, .len, .map, .filter
+let nums = [1, 2];
+nums.push(3);
+println("push example:", nums);
+println("pop example:", nums.pop(), "->", nums);
+println("first/last example:", nums.first(), nums.last());
+println("rest example:", nums.rest());
 
 let a = [1, 2, 3, 4];
 let double = fn(x) { x * 2 };
-println("map example:", map(a, double));
+println("map example:", a.map(double));
+println("filter example:", a.filter(fn(x) { x > 2 }));
 
-// and a reduce()
+// hashmaps are backed by the HashMap class:
+// .get, .set, .has, .remove, .keys, .values, .len
+let ages = {};
+ages.set("alice", 30);
+ages.set("bob", 25);
+println("hashmap example:", ages);
+println("has example:", ages.has("alice"), ages.has("carol"));
+println("remove example:", ages.remove("bob"), "->", ages);
+
+// no built-in reduce - write one with recursion
 let reduce = fn(arr, initial, f) {
-  let iter = fn(arr, result) {
-    if (len(arr) == 0) {
-      result
-    } else {
-      iter(rest(arr), f(result, first(arr)));
-    }
-  };
-  iter(arr, initial);
+  if (len(arr) == 0) {
+    initial
+  } else {
+    reduce(arr.rest(), f(initial, arr.first()), f);
+  }
 };
 
 let sum = fn(arr) {
-  reduce(arr, 0, fn(initial, el) { initial + el });
+  reduce(arr, 0, fn(acc, el) { acc + el });
 };
 println("sum example:", sum([1, 2, 3, 4, 5]));
 `,
