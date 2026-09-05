@@ -1,5 +1,6 @@
 pub mod builtins;
 pub mod object;
+mod prelude;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -175,7 +176,10 @@ fn eval_expression(expr: &Expression, env: &Env) -> Result<Object, ErrorObject> 
             {
                 let receiver = eval_expression(&idx.left, env)?;
 
-                if matches!(receiver, Object::Instance(_) | Object::Class(_)) {
+                if matches!(
+                    receiver,
+                    Object::Instance(_) | Object::Class(_) | Object::Array(_) | Object::Hash(_)
+                ) {
                     let args = eval_expressions(&expr.args, env)?;
                     return eval_method_call(receiver, name_expr.value.as_ref(), args, env);
                 }
@@ -260,7 +264,20 @@ fn eval_method_call(
     let (class_env, instance) = match &receiver {
         Object::Instance(instance) => (instance.class_env.clone(), Some(receiver.clone())),
         Object::Class(class) => (class.env.clone(), None),
-        _ => unreachable!("eval_method_call is only called with a Class or Instance receiver"),
+        Object::Array(_) => (stdlib_class_env("Array", env)?, Some(receiver.clone())),
+        Object::Hash(hash) => {
+            let key = StringObject { value: name.into() };
+            if let Some(hashed) = key.hash_key()
+                && let Some((_, stored)) = hash.pairs.try_borrow()?.get(&hashed)
+            {
+                return apply_function(stored.clone(), args, env);
+            }
+
+            (stdlib_class_env("HashMap", env)?, Some(receiver.clone()))
+        }
+        _ => unreachable!(
+            "eval_method_call is only called with a Class, Instance, Array, or Hash receiver"
+        ),
     };
 
     let method = class_env
@@ -282,6 +299,23 @@ fn eval_method_call(
         .map(|p| p.value.as_ref() == "self")
         .unwrap_or(false);
 
+    let expected = if has_self {
+        func.params.len() - 1
+    } else {
+        func.params.len()
+    };
+
+    if args.len() != expected {
+        return Err(ErrorObject {
+            msg: format!(
+                "{name} expects {} argument{}, got {}",
+                expected,
+                if expected == 1 { "" } else { "s" },
+                args.len()
+            ),
+        });
+    }
+
     if has_self {
         let instance = instance.ok_or_else(|| ErrorObject {
             msg: format!("{name} is an instance method and requires an instance to call"),
@@ -291,6 +325,17 @@ fn eval_method_call(
         apply_function(Object::Function(func), call_args, env)
     } else {
         apply_function(Object::Function(func), args, env)
+    }
+}
+
+fn stdlib_class_env(class_name: &str, env: &Env) -> Result<Env, ErrorObject> {
+    match env.borrow().get(class_name) {
+        Some(Object::Class(class)) => Ok(class.env.clone()),
+        _ => Err(ErrorObject {
+            msg: format!(
+                "internal eval error: stdlib class `{class_name}` is not defined; the abclang prelude may not have been loaded"
+            ),
+        }),
     }
 }
 
@@ -320,6 +365,24 @@ fn apply_function(func: Object, args: Vec<Object>, env: &Env) -> Result<Object, 
                     .first()
                     .map(|p| p.value.as_ref() == "self")
                     .unwrap_or(false);
+
+                let expected = if has_self {
+                    ctor.params.len() - 1
+                } else {
+                    ctor.params.len()
+                };
+
+                if args.len() != expected {
+                    return Err(ErrorObject {
+                        msg: format!(
+                            "{} constructor expects {} argument{}, got {}",
+                            class.name,
+                            expected,
+                            if expected == 1 { "" } else { "s" },
+                            args.len()
+                        ),
+                    });
+                }
 
                 let call_args = if has_self {
                     std::iter::once(instance.clone()).chain(args).collect()
@@ -382,7 +445,7 @@ fn eval_index_assign(left: &Object, index: &Object, value: Object) -> Result<(),
             let i = idx.value;
             let slot = elements.get_mut(i as usize).ok_or_else(|| ErrorObject {
                 msg: format!(
-                    "index {i} out of bounds for Array of length {len}, use `push` to grow"
+                    "index {i} out of bounds for Array of length {len}, use `.push()` to grow"
                 ),
             })?;
 
@@ -466,12 +529,21 @@ fn eval_array_index_expression(
 }
 
 fn extend_function_env(func: FunctionObject, args: Vec<Object>) -> Result<Env, ErrorObject> {
+    if args.len() != func.params.len() {
+        return Err(ErrorObject {
+            msg: format!(
+                "expected {} argument{}, got {}",
+                func.params.len(),
+                if func.params.len() == 1 { "" } else { "s" },
+                args.len()
+            ),
+        });
+    }
+
     let env = Environment::new_enclosed(func.env);
 
-    for (i, p) in func.params.iter().enumerate() {
-        env.borrow_mut().set(p.value.to_string(), args.get(i).ok_or_else(|| ErrorObject {
-            msg: "when extending function environment, attempting to find an original arg, but cannot find it.".to_string()
-        })?.clone());
+    for (p, arg) in func.params.iter().zip(args) {
+        env.try_borrow_mut()?.set(p.value.to_string(), arg);
     }
 
     Ok(env)
@@ -1321,18 +1393,18 @@ mod tests {
         },
         Case {
             name: "err_push_wrong_arity",
-            input: "push([1, 2], 3, 4)",
-            output: "ERROR: wrong number of arguments to `push`. got=3, want=2",
+            input: "[1, 2].push(3, 4)",
+            output: "ERROR: push expects 1 argument, got 2",
         },
         Case {
-            name: "err_push_wrong_type",
-            input: "push(5, 1)",
-            output: "ERROR: argument to `push` not supported, expected Array, got Integer",
+            name: "err_push_on_non_array",
+            input: "5.push(1)",
+            output: "ERROR: index operator not supported: Integer",
         },
         Case {
             name: "err_index_assign_out_of_bounds",
             input: "let a = [1, 2, 3]; a[5] = 9",
-            output: "ERROR: index 5 out of bounds for Array of length 3, use `push` to grow",
+            output: "ERROR: index 5 out of bounds for Array of length 3, use `.push()` to grow",
         },
         Case {
             name: "err_index_assign_non_integer",
@@ -1605,7 +1677,7 @@ mod tests {
         Case {
             name: "len_wrong_type",
             input: "len(1)",
-            output: "ERROR: argument to `len` not supported, expected String or Array, got Integer",
+            output: "ERROR: argument to `len` not supported, expected String, Array, or Hash, got Integer",
         },
         Case {
             name: "len_wrong_arity",
@@ -1683,39 +1755,44 @@ mod tests {
             output: "ERROR: wrong number of arguments to `max`. got=1, want=2",
         },
         Case {
-            name: "err_first_wrong_type",
-            input: "first(5)",
-            output: "ERROR: arguments to `first` not supported, expected array, got Integer",
+            name: "err_first_on_non_array",
+            input: "5.first()",
+            output: "ERROR: index operator not supported: Integer",
         },
         Case {
             name: "err_first_wrong_arity",
-            input: "first([1],[2])",
-            output: "ERROR: wrong number of arguments to `first`. got=2, want=1",
+            input: "[1].first(2)",
+            output: "ERROR: first expects 0 arguments, got 1",
         },
         Case {
-            name: "err_last_wrong_type",
-            input: "last(5)",
-            output: "ERROR: arguments to `last` not supported, expected array, got Integer",
+            name: "err_last_on_non_array",
+            input: "5.last()",
+            output: "ERROR: index operator not supported: Integer",
         },
         Case {
             name: "err_last_wrong_arity",
-            input: "last([1],[2])",
-            output: "ERROR: wrong number of arguments to `last`. got=2, want=1",
+            input: "[1].last(2)",
+            output: "ERROR: last expects 0 arguments, got 1",
         },
         Case {
-            name: "err_rest_wrong_type",
-            input: "rest(5)",
-            output: "ERROR: arguments to `rest` not supported, expected array, got Integer",
+            name: "err_rest_on_non_array",
+            input: "5.rest()",
+            output: "ERROR: index operator not supported: Integer",
         },
         Case {
             name: "err_rest_wrong_arity",
-            input: "rest([1],[2])",
-            output: "ERROR: wrong number of arguments to `rest`. got=2, want=1",
+            input: "[1].rest(2)",
+            output: "ERROR: rest expects 0 arguments, got 1",
         },
         Case {
             name: "err_push_no_args",
-            input: "push()",
-            output: "ERROR: wrong number of arguments to `push`. got=0, want=2",
+            input: "[1, 2].push()",
+            output: "ERROR: push expects 1 argument, got 0",
+        },
+        Case {
+            name: "err_undefined_array_method",
+            input: "[1].bogus()",
+            output: "ERROR: bogus is not defined on Array",
         },
         Case {
             name: "builtin_function_inspect",
@@ -1976,48 +2053,83 @@ mod tests {
         },
         Case {
             name: "array_first",
-            input: "first([1, 2, 3])",
+            input: "[1, 2, 3].first()",
             output: "1",
         },
         Case {
             name: "array_first_empty",
-            input: "first([])",
+            input: "[].first()",
             output: "",
         },
         Case {
             name: "array_last",
-            input: "last([1, 2, 3])",
+            input: "[1, 2, 3].last()",
             output: "3",
         },
         Case {
             name: "array_last_empty",
-            input: "last([])",
+            input: "[].last()",
             output: "",
         },
         Case {
             name: "array_rest",
-            input: "rest([1, 2, 3])",
+            input: "[1, 2, 3].rest()",
             output: "[2, 3]",
         },
         Case {
             name: "array_rest_single",
-            input: "rest([1])",
+            input: "[1].rest()",
             output: "[]",
         },
         Case {
             name: "array_rest_chained",
-            input: "rest(rest(rest(rest([1, 2, 3, 4, 5]))))",
+            input: "[1, 2, 3, 4, 5].rest().rest().rest().rest()",
             output: "[5]",
         },
         Case {
             name: "array_push",
-            input: "push([1, 2], 3)",
+            input: "let a = [1, 2]; a.push(3); a",
             output: "[1, 2, 3]",
         },
         Case {
             name: "array_push_empty",
-            input: "push([], 1)",
+            input: "let a = []; a.push(1); a",
             output: "[1]",
+        },
+        Case {
+            name: "array_push_returns_array",
+            input: "[1, 2].push(3)",
+            output: "[1, 2, 3]",
+        },
+        Case {
+            name: "array_pop",
+            input: "let a = [1, 2, 3]; let popped = a.pop(); print(popped); print(a)",
+            output: "3[1, 2]",
+        },
+        Case {
+            name: "array_pop_empty",
+            input: "[].pop()",
+            output: "",
+        },
+        Case {
+            name: "array_len_method",
+            input: "[1, 2, 3].len()",
+            output: "3",
+        },
+        Case {
+            name: "array_map",
+            input: "[1, 2, 3].map(fn(x) { x * 2 })",
+            output: "[2, 4, 6]",
+        },
+        Case {
+            name: "array_filter",
+            input: "[1, 2, 3, 4].filter(fn(x) { x > 2 })",
+            output: "[3, 4]",
+        },
+        Case {
+            name: "array_map_then_filter_chained",
+            input: "[1, 2, 3, 4].map(fn(x) { x * 2 }).filter(fn(x) { x > 4 })",
+            output: "[6, 8]",
         },
         // hash
         Case {
@@ -2094,6 +2206,71 @@ mod tests {
             name: "hash_dot_access_nested",
             input: r#"let h = {"a": {"b": 42}}; h.a.b"#,
             output: "42",
+        },
+        Case {
+            name: "hash_get_method",
+            input: r#"{"a": 1}.get("a")"#,
+            output: "1",
+        },
+        Case {
+            name: "hash_get_missing_returns_null",
+            input: r#"{"a": 1}.get("b")"#,
+            output: "",
+        },
+        Case {
+            name: "hash_set_method",
+            input: r#"let h = {}; h.set("a", 1); h.get("a")"#,
+            output: "1",
+        },
+        Case {
+            name: "hash_set_returns_self_chained",
+            input: r#"{}.set("x", 5).get("x")"#,
+            output: "5",
+        },
+        Case {
+            name: "hash_has_true",
+            input: r#"{"a": 1}.has("a")"#,
+            output: "true",
+        },
+        Case {
+            name: "hash_has_false",
+            input: r#"{"a": 1}.has("b")"#,
+            output: "false",
+        },
+        Case {
+            name: "hash_remove_method",
+            input: r#"let h = {"a": 1}; let removed = h.remove("a"); print(removed); print(h.has("a"))"#,
+            output: "1false",
+        },
+        Case {
+            name: "hash_remove_missing_returns_null",
+            input: r#"{}.remove("a")"#,
+            output: "",
+        },
+        Case {
+            name: "hash_keys_method",
+            input: r#"{"a": 1}.keys()"#,
+            output: "[a]",
+        },
+        Case {
+            name: "hash_values_method",
+            input: r#"{"a": 1}.values()"#,
+            output: "[1]",
+        },
+        Case {
+            name: "hash_len_method",
+            input: r#"{"a": 1, "b": 2}.len()"#,
+            output: "2",
+        },
+        Case {
+            name: "hash_len_method_empty",
+            input: "{}.len()",
+            output: "0",
+        },
+        Case {
+            name: "hash_stored_function_still_takes_priority_over_class_method",
+            input: r#"let obj = {"get": fn() { "shadowed" }}; obj.get()"#,
+            output: "shadowed",
         },
         // print
         Case {
@@ -2463,6 +2640,36 @@ find({1: 10, 2: 20, 3: 30}, 2)"#,
             name: "constructor_without_self_runs_but_binds_no_fields",
             input: "class Foo { fn new() { println(\"built\"); } } Foo(); 1;",
             output: "built\n1",
+        },
+        Case {
+            name: "err_fn_call_too_many_args",
+            input: "let add = fn(x, y) { x + y }; add(1, 2, 3);",
+            output: "ERROR: expected 2 arguments, got 3",
+        },
+        Case {
+            name: "err_fn_call_too_few_args",
+            input: "let add = fn(x, y) { x + y }; add(1);",
+            output: "ERROR: expected 2 arguments, got 1",
+        },
+        Case {
+            name: "err_constructor_too_many_args",
+            input: "class Point { fn new(self, x, y) { self.x = x; self.y = y; } } Point(1, 2, 3);",
+            output: "ERROR: Point constructor expects 2 arguments, got 3",
+        },
+        Case {
+            name: "err_constructor_too_few_args",
+            input: "class Point { fn new(self, x, y) { self.x = x; self.y = y; } } Point(1);",
+            output: "ERROR: Point constructor expects 2 arguments, got 1",
+        },
+        Case {
+            name: "err_method_call_too_many_args",
+            input: "class Point { fn new(self, x) { self.x = x; } fn dist(self, other) { self.x - other.x } } let p = Point(0); p.dist(1, 2);",
+            output: "ERROR: dist expects 1 argument, got 2",
+        },
+        Case {
+            name: "err_method_call_too_few_args",
+            input: "class Point { fn new(self, x) { self.x = x; } fn dist(self, other) { self.x - other.x } } let p = Point(0); p.dist();",
+            output: "ERROR: dist expects 1 argument, got 0",
         },
         // decode_ways_regression
         Case {

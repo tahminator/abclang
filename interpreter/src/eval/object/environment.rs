@@ -16,7 +16,9 @@ pub struct Environment {
 
 impl Environment {
     pub fn new() -> Env {
-        Rc::new(RefCell::new(Self::default()))
+        let env = Rc::new(RefCell::new(Self::default()));
+        crate::eval::prelude::load_to_env(&env);
+        env
     }
 
     pub fn new_enclosed(outer: Env) -> Env {
