@@ -321,11 +321,16 @@ let decodeWays = fn(s) {
   return dp(0);
 }
 
-println("expected", 2, "received", decodeWays("11106"));
-println("expected", 2, "received", decodeWays("12"));
-println("expected", 3, "received", decodeWays("226"));
-println("expected", 0, "received", decodeWays("06"));
-println("expected", 1836311903, "received", decodeWays("111111111111111111111111111111111111111111111"));
+let check = fn (l, r) {
+  println("expected", string(l)+",", "received", string(r)+".", "equiv="+string(l==r))
+}
+
+check(2, decodeWays("11106"));
+check(2, decodeWays("12"));
+check(3, decodeWays("226"));
+check(0, decodeWays("06"));
+check(1836311903, decodeWays("111111111111111111111111111111111111111111111"));
+
 `,
   },
 ];
